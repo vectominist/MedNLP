@@ -15,7 +15,8 @@ wget ${wget_opts} -O data/Train_risk_classification_ans.csv https://aidea-web.tw
 
 [ ! -d data/Baseline ] && \
 wget ${wget_opts} -O data/Baseline.zip https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1617075668876673_train_test_dataset_1___Baseline.zip && \
-unzip -o data/Baseline.zip -d data/
+unzip -o data/Baseline.zip -d data/ && \
+rm -rf data/Baseline.zip
 
 if [ -d model ]; then
 	echo "model folder exists, skipped..."
