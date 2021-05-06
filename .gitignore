@@ -1,3 +1,7 @@
+model
+data
+aidea-web.tw_cookies.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
