@@ -18,12 +18,3 @@ wget ${wget_opts} -O data/Baseline.zip https://aidea-web.tw/file/3665319f-cd5d-4
 unzip -o data/Baseline.zip -d data/ && \
 rm -rf data/Baseline.zip
 
-if [ -d model ]; then
-	echo "model folder exists, skipped..."
-else
-	mkdir model
-	model=biobert_large_v1.1_pubmed.tar.gz
-	gdown -O model/$model https://drive.google.com/u/0/uc?id=1GJpGjQj6aZPV-EfbiQELpBkvlGtoKiyA || exit 1
-	tar --directory=model -xvf model/$model || exit 1
-	rm -rf model/$model
-fi
