@@ -1,4 +1,4 @@
 #!/bin/bash
-
-rm -rf model
-rm -rf data
+rm -rf data/embeddings.npy
+rm -rf data/vocab.json
+rm -rf exp log

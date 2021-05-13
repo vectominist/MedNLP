@@ -1,6 +1,8 @@
-model
 data
+word2vec
 aidea-web.tw_cookies.txt
+exp
+log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
