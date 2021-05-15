@@ -204,8 +204,9 @@ def qa_test(exp_path: str, eval_set="val"):
             batch_document = batch_data[1].to(device)
             batch_question = batch_data[2].to(device)
             batch_choice = batch_data[3].to(device)
+            batch_answer = batch_data[4]
 
-            answer["qa"] = answer["qa"] + batch_data["qa_answer"].argmax(dim=-1).tolist()
+            answer["qa"] = answer["qa"] + batch_answer.argmax(dim=-1).tolist()
 
             pred_qa = model(batch_document, batch_question, batch_choice)
 
