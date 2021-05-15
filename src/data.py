@@ -1,7 +1,14 @@
 import csv
 import json
 from torch.utils.data import Dataset
+import unicodedata
+from dataset import split_sent
+import tqdm
+import numpy as np
 
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+tokenize = lambda x,max_length: tokenizer(x, return_tensors="pt", padding="max_length", truncation="longest_first", max_length=max_length).input_ids
 
 # TODO: Text normalization
 
@@ -60,7 +67,8 @@ class QADataset(Dataset):
         Dataset for QA
     '''
 
-    def __init__(self, path, split='train', val_r=10):
+    def __init__(self, path, split='train', val_r=10,
+            max_q_len=20, max_c_len=20, max_doc_len=170, max_sent_len=70):
         assert split in ['train', 'val', 'dev', 'test']
 
         self.path = path
@@ -71,7 +79,9 @@ class QADataset(Dataset):
             assert type(data_list) == list
 
             data = []
-            for i, d in enumerate(data_list):
+            print("Reading qa data ...")
+            data_list_bar = tqdm.tqdm(data_list, ncols=70)
+            for i, d in enumerate(data_list_bar):
                 idx = d['id']
                 article_idx = d['article_id']
                 text = d['text']
@@ -85,11 +95,23 @@ class QADataset(Dataset):
                     else:
                         answer = choice2int[d['answer']]
 
+                text = unicodedata.normalize("NFKC", text)
+                text = ["".join(i) for i in split_sent(text)]
+                text = [""] * max(0, max_doc_len - len(text)) + text[:max_doc_len]
+                stem = unicodedata.normalize("NFKC", stem)
+                choices = [unicodedata.normalize("NFKC", i) for i in choices]
+
+                text = tokenize(text, max_sent_len)
+                stem = tokenize(stem, max_q_len).squeeze()
+                choices = tokenize(choices, max_c_len)
+
                 if split in ['train', 'val']:
-                    data.append((idx, text, stem, choices, answer))
+                    one_hot_answer = np.zeros((3,), dtype = np.float32)
+                    one_hot_answer[answer] = 1
+                    data.append((idx, text, stem, choices, one_hot_answer))
                 else:
                     data.append((idx, text, stem, choices))
-
+            data_list_bar.close()
         if split == 'train':
             data = [data[i] for i in range(len(data)) if i % val_r != 0]
         elif split == 'val':
@@ -111,10 +133,11 @@ class QADataset(Dataset):
 
 if __name__ == '__main__':
     # debug code
-    cl_dataset = ClassificationDataset(
-        '/Users/hc/Downloads/Train_risk_classification_ans.csv', 'train')
+    # cl_dataset = ClassificationDataset(
+        # '/Users/hc/Downloads/Train_risk_classification_ans.csv', 'train')
     # print(cl_dataset.__getitem__(0))
 
     qa_dataset = QADataset(
-        '/Users/hc/Downloads/Train_qa_ans.json', 'train')
+        'data/Train_qa_ans.json', 'train')
     # print(qa_dataset.__getitem__(0))
+    # print(qa_dataset[0])

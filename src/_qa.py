@@ -6,9 +6,10 @@ import random
 import os
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score, accuracy_score
-from model import qa_model
+from model import qa_model_hugginggface
 from dataset import all_dataset
 from torch.utils.tensorboard import SummaryWriter
+from data import QADataset
 
 '''
 Here is the part of training the model, you need to set hyperparameters by yourself.
@@ -17,10 +18,11 @@ Here is the part of training the model, you need to set hyperparameters by yours
 def qa_train():
     # Hyperparameters
     args = {
-        "batch_size": 4,
+        "batch_size": 2,
         "learning_rate": 1e-3,
         "random_seed": 42,
         "n_epoch": 50,
+        "n_fine_tune_huggingface_epoch": 40,
         "log_step": 15,
         "save_step": 3000,
         "d_emb": 300,
@@ -31,6 +33,10 @@ def qa_train():
         "log_path": os.path.join("log", "_qa", "_1"),
         "qa_data": os.path.join("data", "Train_qa_ans.json"),
         "risk_data": os.path.join("data", "Train_risk_classification_ans.csv"),
+        "max_q_len": 20,
+        "max_c_len": 20,
+        "max_doc_len": 170, # number of sentences per document
+        "max_sent_len": 70,
     }
 
     # Save training configuration
@@ -53,7 +59,7 @@ def qa_train():
         device = torch.device('cuda')
 
     # Model
-    model = qa_model(args["d_emb"], args["n_cls_layers"], args["p_drop"])
+    model = qa_model_hugginggface(args["n_cls_layers"], args["p_drop"])
     model = model.train()
     model = model.to(device)
 
@@ -81,7 +87,9 @@ def qa_train():
         model.parameters(), lr=args["learning_rate"])
 
     # Data
-    data = all_dataset(args["qa_data"], args["risk_data"])
+    # data = all_dataset(args["qa_data"], args["risk_data"])
+    data = QADataset(args["qa_data"], 'train', max_q_len=args["max_q_len"], max_c_len=args["max_c_len"],
+                 max_doc_len=args["max_doc_len"], max_sent_len=args["max_sent_len"])
     dataldr = torch.utils.data.DataLoader(data, batch_size=args["batch_size"], shuffle=True)
 
     # Log writer
@@ -94,18 +102,24 @@ def qa_train():
     avg_loss = 0
     for epoch in range(args["n_epoch"]):
         tqdm_dldr = tqdm(dataldr)
-
+        if epoch == args["n_fine_tune_huggingface_epoch"] - 1:
+            model.embed_model.requires_grad = True
         for batch_data in tqdm_dldr:
             optimizer.zero_grad()
-            batch_document = []
+            # batch_document = []
 
-            for idx in batch_data["article_id"]:
-                batch_document.append(data.article[idx])
+            # for idx in batch_data["article_id"]:
+            #     batch_document.append(data.article[idx])
 
-            batch_document = torch.LongTensor(batch_document).to(device)
-            batch_question = batch_data["question"].to(device)
-            batch_choice = batch_data["choice"].to(device)
-            batch_qa_answer = batch_data["qa_answer"].float().to(device)
+            # batch_document = torch.LongTensor(batch_document).to(device)
+            # batch_question = batch_data["question"].to(device)
+            # batch_choice = batch_data["choice"].to(device)
+            # batch_qa_answer = batch_data["qa_answer"].float().to(device)
+            batch_document_id = batch_data[0]
+            batch_document = batch_data[1].to(device)
+            batch_question = batch_data[2].to(device)
+            batch_choice = batch_data[3].to(device)
+            batch_qa_answer = batch_data[4].to(device)
 
             loss = model.loss_fn(batch_document, batch_question,
                                  batch_choice, batch_qa_answer)
@@ -133,7 +147,7 @@ def qa_train():
     torch.save(model.state_dict(), os.path.join(args["model_path"], f"model-{step}.pt"))
 
 
-def qa_test(exp_path: str):
+def qa_test(exp_path: str, eval_set="val"):
     # Hyperparameters
     batch_size = 8
     with open(os.path.join(exp_path, "cfg.json"), "r") as f:
@@ -157,14 +171,16 @@ def qa_test(exp_path: str):
     writer = SummaryWriter(log_dir=args["log_path"])
 
     # Evaluate on training set
-    print("evaluate on training set...")
+    print("evaluate on %s set..." % eval_set)
 
     # Data
-    data = all_dataset(args["qa_data"], args["risk_data"])
+    # data = all_dataset(args["qa_data"], args["risk_data"])
+    data = QADataset(args["qa_data"], eval_set, max_q_len=args["max_q_len"], max_c_len=args["max_c_len"],
+                 max_doc_len=args["max_doc_len"], max_sent_len=args["max_sent_len"])
 
     for ckpt in ckpts:
         # Model
-        model = qa_model(args["d_emb"], args["n_cls_layers"], 0.0)
+        model = qa_model_hugginggface(args["n_cls_layers"], 0.0)
         model.load_state_dict(torch.load(os.path.join(
             args["model_path"], f"model-{ckpt}.pt")))
         model = model.eval()
@@ -176,14 +192,18 @@ def qa_test(exp_path: str):
         pred = {"qa": []}
 
         for batch_data in tqdm_dldr:
-            batch_document = []
+            # batch_document = []
 
-            for idx in batch_data["article_id"]:
-                batch_document.append(data.article[idx])
+            # for idx in batch_data["article_id"]:
+            #     batch_document.append(data.article[idx])
 
-            batch_document = torch.LongTensor(batch_document).to(device)
-            batch_question = batch_data["question"].to(device)
-            batch_choice = batch_data["choice"].to(device)
+            # batch_document = torch.LongTensor(batch_document).to(device)
+            # batch_question = batch_data["question"].to(device)
+            # batch_choice = batch_data["choice"].to(device)
+            batch_document_id = batch_data[0]
+            batch_document = batch_data[1].to(device)
+            batch_question = batch_data[2].to(device)
+            batch_choice = batch_data[3].to(device)
 
             answer["qa"] = answer["qa"] + batch_data["qa_answer"].argmax(dim=-1).tolist()
 
@@ -197,4 +217,5 @@ def qa_test(exp_path: str):
 if __name__ == "__main__":
     qa_train()
     exp_path = os.path.join("exp", "_qa", "_1")
-    qa_test(exp_path)
+    qa_test(exp_path, 'train')
+    qa_test(exp_path, 'val')

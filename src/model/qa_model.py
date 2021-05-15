@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from model.encoder import Encoder
+from transformers import AutoModel 
 
 class QA_Classifier(nn.Module):
     def __init__(self, d_emb: int, p_hid: float, n_layers: int):
@@ -55,17 +56,17 @@ class QA_Classifier(nn.Module):
 
 
 class qa_model(nn.Module):
-    def __init__(self, d_emb: int, n_layers: int, p_hid: float):
+    def __init__(self, d_emb: int, n_layers: int, p_hid: float, readEmbed=True):
         super().__init__()
-        word_embedding = np.load("data/embeddings.npy")
-        word_embedding = torch.FloatTensor(word_embedding)
-        self.embedding = nn.Embedding.from_pretrained(
-            word_embedding, freeze=True, padding_idx=0)
+        if readEmbed:
+            word_embedding = np.load("data/embeddings.npy")
+            word_embedding = torch.FloatTensor(word_embedding)
+            self.embedding = nn.Embedding.from_pretrained(
+                word_embedding, freeze=True, padding_idx=0)
         self.word_encoder = Encoder(d_emb, p_hid)
         self.encoder = Encoder(d_emb, p_hid)
         self.qa = QA_Classifier(d_emb, p_hid, n_layers)
-
-    def forward(self, document, question, choice):
+    def embed(self, document, question, choice):
         # Embedding layer
         # Shape: [B, `max_doc_len`, `max_sent_len`, E]
         doc = self.embedding(document)
@@ -73,7 +74,10 @@ class qa_model(nn.Module):
         qst = self.embedding(question)
         # Shape: [B, 3, `max_c_len`, E]
         chs = self.embedding(choice)
+        return doc, qst, chs
 
+    def forward(self, document, question, choice):
+        doc, qst, chs = self.embed(document, question, choice)
         # Sentence embedding
         # Shape: [B, `max_doc_len`, E]
         w_mask, s_mask = self.create_mask(document)
@@ -120,4 +124,22 @@ class qa_model(nn.Module):
         pred_qa = pred_qa.reshape(-1)
         qa = qa.reshape(-1)
         return F.binary_cross_entropy(pred_qa, qa)
+class qa_model_hugginggface(qa_model):
+    def __init__(self, *args, **kargs):
+        super().__init__(768, *args, **kargs, readEmbed=False)
+        self.embed_model = AutoModel.from_pretrained("bert-base-chinese")
+        self.embed_model.requires_grad = False
+    def embed(self, document, question, choice):
+        batch_size, doc_len, sent_len = document.shape
+        document = document.reshape((batch_size * doc_len, sent_len))
+        doc = self.embed_model(document).last_hidden_state
+        doc = doc.reshape((batch_size, doc_len, sent_len, -1))
+        
+        qst = self.embed_model(question).last_hidden_state
 
+        batch_size, _, c_len = choice.shape
+        choice = choice.reshape((batch_size * 3, -1))
+        chs = self.embed_model(choice).last_hidden_state
+        chs = chs.reshape((batch_size, 3, c_len, -1))
+        
+        return doc, qst, chs
