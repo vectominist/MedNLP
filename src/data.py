@@ -97,7 +97,7 @@ class QADataset(Dataset):
 
                 text = unicodedata.normalize("NFKC", text)
                 text = ["".join(i) for i in split_sent(text)]
-                text = [""] * max(0, max_doc_len - len(text)) + text[:max_doc_len]
+                text = text[:max_doc_len] + [""] * max(0, max_doc_len - len(text))
                 stem = unicodedata.normalize("NFKC", stem)
                 choices = [unicodedata.normalize("NFKC", i) for i in choices]
 
