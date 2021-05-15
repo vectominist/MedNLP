@@ -103,7 +103,7 @@ def qa_train():
     for epoch in range(args["n_epoch"]):
         tqdm_dldr = tqdm(dataldr)
         if epoch == args["n_fine_tune_huggingface_epoch"] - 1:
-            model.embed_model.requires_grad = True
+            model.EnableEncoderTrain()
         for batch_data in tqdm_dldr:
             optimizer.zero_grad()
             # batch_document = []

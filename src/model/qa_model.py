@@ -128,7 +128,7 @@ class qa_model_hugginggface(qa_model):
     def __init__(self, *args, **kargs):
         super().__init__(768, *args, **kargs, readEmbed=False)
         self.embed_model = AutoModel.from_pretrained("bert-base-chinese")
-        self.embed_model.requires_grad = False
+        self.DisableEncoderTrain()
     def embed(self, document, question, choice):
         batch_size, doc_len, sent_len = document.shape
         document = document.reshape((batch_size * doc_len, sent_len))
@@ -143,3 +143,9 @@ class qa_model_hugginggface(qa_model):
         chs = chs.reshape((batch_size, 3, c_len, -1))
         
         return doc, qst, chs
+    def EnableEncoderTrain(self, enable = True):
+        for name, param in self.embed_model.named_parameters():
+            if 'classifier' not in name: # classifier layer
+                param.requires_grad = enable
+    def DisableEncoderTrain(self):
+        self.EnableEncoderTrain(False)
