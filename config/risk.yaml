@@ -1,0 +1,32 @@
+data:
+  path: data/Train_risk_classification_ans.csv
+
+model:
+  pretrained: bert-base-chinese
+
+train_args:
+  output_dir: /work/harry87122/runs/nlp/risk_pred
+
+  per_device_train_batch_size: 8
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 4
+
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  num_train_epochs: 10
+  lr_scheduler_type: linear
+  warmup_ratio: 0.0
+
+  save_steps: 100
+  seed: 7122
+  report_to: tensorboard
+
+  fp16: true
+  fp16_opt_level: O1
+  fp16_backend: amp
+
+  dataloader_num_workers: 2
+
+  metric_for_best_model: eval_loss
+
+  label_smoothing_factor: 0.0
