@@ -56,7 +56,6 @@ class ClassificationDataset(Dataset):
             for i, row in enumerate(rows):
                 if i == 0:
                     continue
-
                 idx, sent = int(row[1]), row[2]
                 sent = normalize_and_tokenize(sent)
                 if split in ['train', 'val']:
@@ -85,11 +84,12 @@ class ClassificationDataset(Dataset):
         # train & val : idx, paragraph, label
         # dev & test : idx, paragraph
         if self.split in ['train', 'val']:
-            item = {key: val for key, val in self.data[index][1].items()}
+            item = {key: val[0] for key, val in self.data[index][1].items()}
             item['labels'] = torch.tensor(self.data[index][2])
             return item
         else:
-            return {key: val for key, val in self.data[index][1].items()}
+            item = {key: val[0] for key, val in self.data[index][1].items()}
+            return item
 
 
 class QADataset(Dataset):
@@ -173,6 +173,3 @@ if __name__ == '__main__':
         'data/Train_qa_ans.json', 'train')
     # print(qa_dataset.__getitem__(0))
     # print(qa_dataset[0])
-
-
-# def classification_data_collator(data):
