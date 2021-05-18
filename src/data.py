@@ -11,9 +11,19 @@ import unicodedata
 from dataset import split_sent
 import tqdm
 import numpy as np
+from augmentation import sentence_random_removal
 
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BertTokenizerFast
 tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+# tokenizer_risk = AutoTokenizer.from_pretrained(
+#     "sentence-transformers/stsb-xlm-r-multilingual")
+tokenizer_risk = AutoTokenizer.from_pretrained(
+    "DeepPavlov/bert-base-multilingual-cased-sentence")
+
+choice2int = {
+    'A': 0, 'B': 1, 'C': 2,
+    'Ａ': 0, 'Ｂ': 1, 'Ｃ': 2
+}
 
 
 def tokenize(x, max_length):
@@ -22,17 +32,24 @@ def tokenize(x, max_length):
         truncation="longest_first", max_length=max_length).input_ids
 
 
-choice2int = {
-    'A': 0, 'B': 1, 'C': 2,
-    'Ａ': 0, 'Ｂ': 1, 'Ｃ': 2
-}
+# def remove_number_string(text: str) -> str:
+#     # TODO:
+#     out = ''
+#     i, cnt_num, cnt_eng = 0, 0, 0
+#     while i < len(text):
+#         if ((cnt_num >= 3) or (cnt_eng >= 5)) and \
+#             (text[i].isalpha or text[i].isdigit()):
+#             pass
+#         elif text[i].isalpha or text[i].isdigit():
+#             cnt += 1
 
 
-def normalize_and_tokenize(text, max_doc_len=170, max_sent_len=70):
-    text = unicodedata.normalize("NFKC", text)
+def normalize_and_tokenize(text, max_doc_len=120, max_sent_len=50):
+    text = unicodedata.normalize("NFKC", text).lower()
+    text = text.replace('.', '')
     text = ["".join(i) for i in split_sent(text)]
     text = text[:max_doc_len] + [""] * max(0, max_doc_len - len(text))
-    text = tokenizer(
+    text = tokenizer_risk(
         text, return_tensors="pt", padding="max_length",
         truncation="longest_first", max_length=max_sent_len)
 
@@ -44,7 +61,7 @@ class ClassificationDataset(Dataset):
         Dataset for classification
     '''
 
-    def __init__(self, path, split='train', val_r=10):
+    def __init__(self, path, split='train', val_r=10, rand_remove=False):
         assert split in ['train', 'val', 'dev', 'test']
 
         self.path = path
@@ -74,8 +91,12 @@ class ClassificationDataset(Dataset):
         print('Found {} samples for {} set of the classifcation task'
               .format(len(self.data), split))
 
-        # import pdb
-        # pdb.set_trace()
+        self.rand_remove = rand_remove
+        if rand_remove:
+            print('Performing random sentence removal for data augmentation')
+
+    def get_ids(self):
+        return [d[0] for d in self.data]
 
     def __len__(self):
         return len(self.data)
@@ -84,11 +105,13 @@ class ClassificationDataset(Dataset):
         # train & val : idx, paragraph, label
         # dev & test : idx, paragraph
         if self.split in ['train', 'val']:
-            item = {key: val[0] for key, val in self.data[index][1].items()}
+            item = {key: val for key, val in self.data[index][1].items()}
+            if self.rand_remove:
+                item = sentence_random_removal(item)
             item['labels'] = torch.tensor(self.data[index][2])
             return item
         else:
-            item = {key: val[0] for key, val in self.data[index][1].items()}
+            item = {key: val for key, val in self.data[index][1].items()}
             return item
 
 

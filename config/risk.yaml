@@ -1,20 +1,21 @@
 data:
   train_path: data/Train_risk_classification_ans.csv
   test_paths: ['data/dev_risk.csv', 'data/test_risk.csv']
-  pred_paths: ['output/pred_dev_risk.csv', 'output/pred_test_risk.csv']
+  pred_paths: ['output/decision.csv', 'output/pred_test_risk.csv']
+  rand_remove: True
 
 model:
-  pretrained: bert-base-chinese
+  pretrained: DeepPavlov/bert-base-multilingual-cased-sentence
 
 train_args:
   output_dir: runs/risk_pred
 
-  per_device_train_batch_size: 8
-  per_device_eval_batch_size: 4
-  gradient_accumulation_steps: 8
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
 
   learning_rate: 0.00005
-  weight_decay: 0.01
+  weight_decay: 0.1
   num_train_epochs: 5
   lr_scheduler_type: linear
   warmup_ratio: 0.0
