@@ -5,7 +5,6 @@ Datasets
 import csv
 import json
 import torch
-# from torch.utils.data import Dataset
 from torch.utils.data.dataset import Dataset
 import unicodedata
 from dataset import split_sent
@@ -17,8 +16,10 @@ from transformers import AutoTokenizer, BertTokenizerFast
 tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
 # tokenizer_risk = AutoTokenizer.from_pretrained(
 #     "sentence-transformers/stsb-xlm-r-multilingual")
+# tokenizer_risk = AutoTokenizer.from_pretrained(
+#     "DeepPavlov/bert-base-multilingual-cased-sentence")
 tokenizer_risk = AutoTokenizer.from_pretrained(
-    "DeepPavlov/bert-base-multilingual-cased-sentence")
+    "sentence-transformers/distilbert-multilingual-nli-stsb-quora-ranking")
 
 choice2int = {
     'A': 0, 'B': 1, 'C': 2,

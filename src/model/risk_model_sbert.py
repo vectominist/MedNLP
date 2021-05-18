@@ -25,7 +25,7 @@ class DocumentAttention(nn.Module):
         super(DocumentAttention, self).__init__()
         self.rnn = nn.GRU(dim, att_dim, 1, batch_first=True)
         self.w_attention = nn.Linear(att_dim, att_dim)
-        self.w_post_layer = nn.Linear(2 * att_dim, dim)
+        self.w_post_layer = nn.Linear(2 * att_dim, att_dim)
 
     def forward(self, x, x_len):
         # x: B x S x D
@@ -46,34 +46,35 @@ class DocumentAttention(nn.Module):
 
 
 class SBertRiskPredictor(nn.Module):
-    def __init__(self, model_name, att_dim=256):
+    def __init__(self, model_name, att_dim=64):
         super(SBertRiskPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
         self.attention = DocumentAttention(768, att_dim)
         self.pred_head = nn.Sequential(
-            nn.LayerNorm(768, eps=1e-12),
-            nn.Linear(768, 2)
+            nn.ReLU(),
+            nn.LayerNorm(att_dim, eps=1e-12),
+            nn.Linear(att_dim, 2)
         )
 
     def forward(self, **inputs):
-        # print(inputs['input_ids'].shape)
         # input size = B x Sentences x Length
-        sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
-        B, S, L = inputs['input_ids'].shape
-        for key, val in inputs.items():
-            inputs[key] = val.reshape(B * S, L)
 
-        out = self.sentsence_encoder(**inputs)
-        # print(out[0].shape)
-        sent_embs = mean_pooling(out, inputs['attention_mask'])
-        sent_embs = sent_embs.reshape(B, S, -1)
+        with torch.no_grad():
+            sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
+            print(sent_lens)
+            input()
+            B, S, L = inputs['input_ids'].shape
+            for key, val in inputs.items():
+                inputs[key] = val.reshape(B * S, L)
+
+            out = self.sentsence_encoder(**inputs)
+            sent_embs = mean_pooling(out, inputs['attention_mask'])
+            sent_embs = sent_embs.reshape(B, S, -1)
 
         h_repr = self.attention(sent_embs, sent_lens - 1)
         prediction = self.pred_head(h_repr)
 
-        outputs = {
-            'logits': prediction
-        }
+        outputs = {'logits': prediction}
 
         if inputs.get('labels', None):
             loss = nn.CrossEntropyLoss()(prediction, inputs['labels'])

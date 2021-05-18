@@ -4,9 +4,10 @@ Training for the Risk Evaluation Task
 
 import argparse
 import yaml
+import os
 import csv
-import logging
 import numpy as np
+import torch
 from sklearn.metrics import roc_auc_score
 from transformers import (
     AutoModelForSequenceClassification,
@@ -18,8 +19,6 @@ from transformers import (
 from data import ClassificationDataset
 from model.risk_model_sbert import SBertRiskPredictor
 
-logging.basicConfig(level=logging.INFO)
-
 
 def risk_eval_metrics(eval_pred):
     logits, labels = eval_pred
@@ -29,7 +28,7 @@ def risk_eval_metrics(eval_pred):
 
 
 def train(config: dict):
-    logging.info('Fine-tuning for the Risk Evalutation Task')
+    print('Fine-tuning for the Risk Evalutation Task')
     # model = AutoModelForSequenceClassification.from_pretrained(
     #     config['model']['pretrained'], num_labels=2)
     model = SBertRiskPredictor(config['model']['pretrained'])
@@ -46,13 +45,18 @@ def train(config: dict):
     )
     trainer.train()
 
-    return trainer
 
+def eval(config: dict, ckpt: str):
+    print('Evaluating the fine-tuned model')
+    print('Loading model from {}'.format(ckpt))
+    model = SBertRiskPredictor(config['model']['pretrained'])
+    ckpt = torch.load(os.path.join(ckpt, 'pytorch_model.bin'))
+    model.load_state_dict(ckpt)
+    training_args = TrainingArguments(**config['train_args'])
+    trainer = Trainer(model=model, args=training_args)
 
-def eval(config: dict, trainer: Trainer):
-    logging.info('Evaluating the fine-tuned model')
     for i in range(len(config['data']['test_paths'])):
-        logging.info('[{}] Evaluating {}'.format(
+        print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
         tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test')
@@ -71,14 +75,18 @@ def eval(config: dict, trainer: Trainer):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Training for Risk Evaluation')
+    parser.add_argument(
+        '--mode', choices=['train', 'test'], help='Mode for risk eval task')
     parser.add_argument('--config', type=str, help='Path to config')
+    parser.add_argument(
+        '--ckpt', type=str, default='../runs/risk-1/checkpoint-44', help='Path to checkpoint')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
 
     set_seed(config['train_args']['seed'])
-    trainer = train(config)
-    if len(config['data']['test_paths']) > 0:
-        eval(config, trainer)
+
+    if args.mode == 'train':
+        train(config)
     else:
-        logging.info('No testing files found, skipping evaluation...')
+        eval(config, args.ckpt)
