@@ -16,8 +16,10 @@ from transformers import (
     EvalPrediction,
     set_seed
 )
-from data import ClassificationDataset
-from model.risk_model_sbert import SBertRiskPredictor
+# from data import ClassificationDataset
+from data_doc2vec import ClassificationDataset
+# from model.risk_model_sbert import SBertRiskPredictor
+from model.risk_model_doc2vec import Doc2VecRiskPredictor
 
 
 def risk_eval_metrics(eval_pred):
@@ -31,18 +33,32 @@ def train(config: dict):
     print('Fine-tuning for the Risk Evalutation Task')
     # model = AutoModelForSequenceClassification.from_pretrained(
     #     config['model']['pretrained'], num_labels=2)
-    model = SBertRiskPredictor(config['model']['pretrained'])
+    # model = SBertRiskPredictor(config['model']['pretrained'])
+    model = Doc2VecRiskPredictor(
+        config['model']['att_dim'], config['model']['doc_dim'])
     training_args = TrainingArguments(**config['train_args'])
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=ClassificationDataset(
             config['data']['train_path'], 'train',
-            rand_remove=config['data']['rand_remove']),
+            rand_remove=config['data']['rand_remove'],
+            doc2vec=config['model']['doc2vec']),
         eval_dataset=ClassificationDataset(
-            config['data']['train_path'], 'val'),
+            config['data']['train_path'], 'val',
+            doc2vec=config['model']['doc2vec']),
         compute_metrics=risk_eval_metrics
     )
+    # trainer = Trainer(
+    #     model=model,
+    #     args=training_args,
+    #     train_dataset=ClassificationDataset(
+    #         config['data']['train_path'], 'train',
+    #         rand_remove=config['data']['rand_remove']),
+    #     eval_dataset=ClassificationDataset(
+    #         config['data']['train_path'], 'val'),
+    #     compute_metrics=risk_eval_metrics
+    # )
     trainer.train()
 
 
