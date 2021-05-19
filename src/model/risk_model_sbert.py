@@ -20,11 +20,26 @@ def mean_pooling(model_output, attention_mask):
     return sum_embeddings / sum_mask
 
 
+class DocumentRNN(nn.Module):
+    def __init__(self, dim, att_dim):
+        super(DocumentRNN, self).__init__()
+        self.rnn = nn.GRU(dim, att_dim, 2, batch_first=True, dropout=0.3)
+
+    def forward(self, x, x_len):
+        # x: B x S x D
+        # x_len: B
+        B = len(x_len)
+        h, _ = self.rnn(x)  # h: B x S x D'
+        
+        return h[range(B), x_len]
+
+
 class DocumentAttention(nn.Module):
     def __init__(self, dim, att_dim):
         super(DocumentAttention, self).__init__()
         self.rnn = nn.GRU(dim, att_dim, 1, batch_first=True)
-        self.w_attention = nn.Linear(att_dim, att_dim)
+        self.Wk = nn.Linear(att_dim, att_dim, bias=False)  # key
+        self.Wq = nn.Linear(att_dim, att_dim, bias=False)  # query
         self.w_post_layer = nn.Linear(2 * att_dim, att_dim)
 
     def forward(self, x, x_len):
@@ -32,7 +47,7 @@ class DocumentAttention(nn.Module):
         # x_len: B
         B = len(x_len)
         h, _ = self.rnn(x)  # h: B x S x D'
-        align = (h[range(B), x_len, :].unsqueeze(1) * self.w_attention(h)).sum(2)
+        align = (self.Wk(h[range(B), x_len, :].unsqueeze(1)) * self.Wq(h)).sum(2)
         # align: B x S
         for b in range(B):
             align[b, x_len[b]:] = -math.inf
@@ -61,8 +76,6 @@ class SBertRiskPredictor(nn.Module):
 
         with torch.no_grad():
             sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
-            print(sent_lens)
-            input()
             B, S, L = inputs['input_ids'].shape
             for key, val in inputs.items():
                 inputs[key] = val.reshape(B * S, L)

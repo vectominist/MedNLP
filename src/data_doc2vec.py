@@ -45,7 +45,7 @@ class ClassificationDataset(Dataset):
                 sent = normalize_sent_with_jieba(sent)  # list of lists
                 sent = [self.doc2vec_model.infer_vector(s) for s in sent]
                 sent = torch.tensor(sent)  # Sentences x Dim
-                sent_len = torch.LongTensor(min(sent.shape[1], max_sentences))
+                sent_len = torch.LongTensor([min(sent.shape[0], max_sentences)])
                 if sent.shape[0] > max_sentences:
                     sent = sent[:max_sentences]
                 elif sent.shape[0] < max_sentences:  # pad sequence

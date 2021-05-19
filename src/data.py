@@ -18,13 +18,7 @@ from opencc import OpenCC
 cc = OpenCC('s2t')  # simplified to traditional
 
 tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
-# tokenizer_risk = AutoTokenizer.from_pretrained(
-#     "sentence-transformers/stsb-xlm-r-multilingual")
-# tokenizer_risk = AutoTokenizer.from_pretrained(
-#     "DeepPavlov/bert-base-multilingual-cased-sentence")
-# tokenizer_risk = AutoTokenizer.from_pretrained(
-#     "sentence-transformers/distilbert-multilingual-nli-stsb-quora-ranking")
-tokenizer_risk = BertTokenizerFast.from_pretrained('ckiplab/bert-base-chinese')
+tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
 
 choice2int = {
     'A': 0, 'B': 1, 'C': 2,
@@ -42,7 +36,7 @@ def is_mandarin(c: str) -> bool:
     return len(re.findall(r'[\u4e00-\u9fff]+', c)) > 0
 
 
-def split_chinese(text: str) -> str:
+def merge_chinese(text: str) -> str:
     if len(text) <= 2:
         return text
     out_text = text[0]
@@ -52,6 +46,7 @@ def split_chinese(text: str) -> str:
                  is_mandarin(text[i + 1])):
             continue
         out_text += text[i]
+    out_text += text[-1]
     return out_text
 
 
@@ -204,7 +199,7 @@ class MLMDataset(Dataset):
     '''
 
     def __init__(self, path, split='train', val_r=10, rand_remove=False):
-        assert split in ['train', 'val', 'dev', 'test']
+        assert split in ['train', 'val', 'dev', 'test', 'train_all']
 
         self.path = path
         self.split = split
@@ -215,11 +210,6 @@ class MLMDataset(Dataset):
                 line = line.strip()  # should be normalized and segmented
                 if line == '':
                     continue
-                line = split_chinese(line)
-                line = cc.convert(line)
-                line = tokenizer_risk(
-                    [line], return_tensors="pt", padding="max_length",
-                    truncation="longest_first", max_length=50)
                 data.append(line)
 
         if split == 'train':
@@ -236,14 +226,10 @@ class MLMDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        # train & val : idx, paragraph, label
-        # dev & test : idx, paragraph
-        if self.split in ['train', 'val']:
-            item = {key: val for key, val in self.data[index][1].items()}
-            return item
-        else:
-            item = {key: val for key, val in self.data[index][1].items()}
-            return item
+        tokens = tokenizer_risk(
+            self.data[index], return_tensors="pt", padding="max_length",
+            truncation="longest_first", max_length=50, return_special_tokens_mask=True)
+        return {key: val[0] for key, val in tokens.items()}
 
 
 if __name__ == '__main__':
