@@ -12,7 +12,11 @@ import re
 from dataset import split_sent
 import tqdm
 import numpy as np
-from augmentation import sentence_random_removal, sentence_random_swap
+from augmentation import (
+    sentence_random_removal,
+    sentence_random_swap,
+    eda_random_deletion,
+    eda_random_swap)
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
 from opencc import OpenCC
@@ -53,7 +57,7 @@ class ClassificationDataset(Dataset):
     '''
 
     def __init__(self, path, split='train', val_r=10,
-                 rand_remove=False, rand_swap=False):
+                 rand_remove=False, rand_swap=False, eda=False):
         assert split in ['train', 'val', 'dev', 'test']
 
         self.path = path
@@ -68,13 +72,12 @@ class ClassificationDataset(Dataset):
                     continue
                 idx, sent = int(row[1]), row[2]
                 sent = normalize_sent_with_jieba(sent)
-                if len(sent) > max_doc_len:
-                    sent = sent[:max_doc_len] + [""] * \
-                        max(0, max_doc_len - len(sent))
+                sent = sent[:max_doc_len] + [""] * \
+                    max(0, max_doc_len - len(sent))
                 sent = [merge_chinese(s) for s in sent]
-                sent = tokenizer_risk(
-                    sent, return_tensors="pt", padding="max_length",
-                    truncation="longest_first", max_length=50)
+                # sent = tokenizer_risk(
+                #     sent, return_tensors="pt", padding="max_length",
+                #     truncation="longest_first", max_length=50)
                 if split in ['train', 'val']:
                     label = int(row[3])
                     data.append((idx, sent, label))
@@ -93,10 +96,13 @@ class ClassificationDataset(Dataset):
 
         self.rand_remove = rand_remove
         self.rand_swap = rand_swap
+        self.eda = eda
         if rand_remove:
             print('Performing random sentence removal for data augmentation')
         if rand_swap:
             print('Performing random sentence swap for data augmentation')
+        if eda:
+            print('Performing easy data augmentation')
 
     def get_ids(self):
         return [d[0] for d in self.data]
@@ -108,7 +114,13 @@ class ClassificationDataset(Dataset):
         # train & val : idx, paragraph, label
         # dev & test : idx, paragraph
         if self.split in ['train', 'val']:
-            item = {key: val for key, val in self.data[index][1].items()}
+            sents = self.data[index][1]
+            if self.eda:
+                sents = [eda_random_swap(s) for s in sents]
+                sents = [eda_random_deletion(s) for s in sents]
+            item = tokenizer_risk(
+                sents, return_tensors="pt", padding="max_length",
+                truncation="longest_first", max_length=50)
             if self.rand_swap:
                 item = sentence_random_swap(item)
             if self.rand_remove:
@@ -116,7 +128,10 @@ class ClassificationDataset(Dataset):
             item['labels'] = torch.tensor(self.data[index][2])
             return item
         else:
-            item = {key: val for key, val in self.data[index][1].items()}
+            sents = self.data[index][1]
+            item = tokenizer_risk(
+                sents, return_tensors="pt", padding="max_length",
+                truncation="longest_first", max_length=50)
             return item
 
 

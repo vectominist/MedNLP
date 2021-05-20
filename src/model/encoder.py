@@ -156,7 +156,7 @@ class MultiHeadAttention(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, d_emb: int, p_hid: float):
         super().__init__()
-        encoderlayer = nn.TransformerEncoderLayer(d_emb, 4)
+        # encoderlayer = nn.TransformerEncoderLayer(d_emb, 4)
         self.linear = nn.Linear(d_emb, d_emb)
         self.pe = PositionalEncoding(d_emb, p_hid)
         self.attn_emb = MultiHeadAttention(d_emb, 4)

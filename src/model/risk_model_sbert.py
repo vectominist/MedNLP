@@ -5,6 +5,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 from torch import nn
 import math
+from model.encoder import Encoder, Risk_Classifier
 
 # Mean Pooling - Take attention mask into account for correct averaging
 # Ref: https://www.sbert.net/examples/applications/computing-embeddings/README.html
@@ -45,6 +46,7 @@ class DocumentAttention(nn.Module):
         self.Wk = nn.Linear(att_dim, att_dim, bias=False)  # key
         self.Wq = nn.Linear(att_dim, att_dim, bias=False)  # query
         self.w_post_layer = nn.Linear(2 * att_dim, att_dim)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x, x_len):
         # x: B x S x D
@@ -57,6 +59,7 @@ class DocumentAttention(nn.Module):
                 h = self.in_layer(x)
             else:
                 h = x
+        h = self.dropout(h)
         align = (self.Wk(h[range(B), x_len, :].unsqueeze(1)) * self.Wq(h)).sum(2)
         # align: B x S
         for b in range(B):
@@ -64,6 +67,7 @@ class DocumentAttention(nn.Module):
         align = torch.softmax(align, dim=1)
         context = (h * align.unsqueeze(2)).sum(1)  # context: B x D'
         h_repr = torch.cat([h[range(B), x_len, :], context], dim=1)
+        h_repr = self.dropout(h_repr)
         h_repr = self.w_post_layer(torch.relu(h_repr))
         # context-aware utterance representation h_repr: B x D
 
@@ -77,16 +81,25 @@ class SBertRiskPredictor(nn.Module):
     def __init__(self, model_name, att_dim=128):
         super(SBertRiskPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
-        self.attention = DocumentAttention(128, att_dim, rnn=False)
+        # self.attention = DocumentAttention(312, att_dim, rnn=True)
+        # self.attention = DocumentRNN(312, att_dim)
+        self.attention = Encoder(312, 0.1)
         self.pred_head = nn.Sequential(
-            nn.Dropout(0.2),
-            nn.Linear(att_dim, 2)
+            nn.Linear(312, 312),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(312, 156),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(156, 2)
         )
 
     def forward(self, **inputs):
         # input size = B x Sentences x Length
 
-        # with torch.no_grad():
+        _, s_mask = self.create_mask(
+            inputs['attention_mask'].unsqueeze(-1))  # B x S x L
+
         sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
         B, S, L = inputs['input_ids'].shape
         for key, val in inputs.items():
@@ -96,7 +109,8 @@ class SBertRiskPredictor(nn.Module):
         sent_embs = mean_pooling(out, inputs['attention_mask'])
         sent_embs = sent_embs.reshape(B, S, -1)
 
-        h_repr = self.attention(sent_embs, sent_lens - 1)
+        # h_repr = self.attention(sent_embs, sent_lens - 1)
+        h_repr = self.attention(sent_embs, s_mask)
         prediction = self.pred_head(h_repr)
 
         outputs = {'logits': prediction}
@@ -107,3 +121,16 @@ class SBertRiskPredictor(nn.Module):
             outputs['labels'] = inputs['labels']
 
         return outputs
+    
+    def create_mask(self, batch_prev_tkids: torch.Tensor) -> torch.Tensor:
+        # Create padding self attention masks.
+        # Shape: [B, `max_doc_len`, `max_sent_len`, 1]
+        # Output dtype: `torch.bool`.
+        w_pad_mask = batch_prev_tkids == 0
+        w_pad_mask = w_pad_mask.unsqueeze(-1)
+
+        s_pad_mask = batch_prev_tkids.sum(-1)
+        s_pad_mask = s_pad_mask == 0
+        s_pad_mask = s_pad_mask.unsqueeze(-1)
+
+        return w_pad_mask, s_pad_mask

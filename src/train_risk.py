@@ -6,6 +6,7 @@ import argparse
 import yaml
 import os
 import csv
+from pathlib import Path
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
@@ -16,8 +17,8 @@ from transformers import (
     EvalPrediction,
     set_seed
 )
-# from data import ClassificationDataset
-from data_doc2vec import ClassificationDataset
+from data import ClassificationDataset
+# from data_doc2vec import ClassificationDataset
 from model.risk_model_sbert import SBertRiskPredictor
 # from model.risk_model_doc2vec import Doc2VecRiskPredictor
 
@@ -34,7 +35,8 @@ def train(config: dict):
     # model = AutoModelForSequenceClassification.from_pretrained(
     #     config['model']['pretrained'], num_labels=2)
     model = SBertRiskPredictor(
-        config['model']['pretrained'], config['model']['att_dim'])
+        Path(config['model']['pretrained']),
+        config['model']['att_dim'])
     
     # model = Doc2VecRiskPredictor(
     #     config['model']['att_dim'], config['model']['doc_dim'])
@@ -56,7 +58,9 @@ def train(config: dict):
         args=training_args,
         train_dataset=ClassificationDataset(
             config['data']['train_path'], 'train',
-            rand_remove=config['data']['rand_remove']),
+            rand_remove=config['data']['rand_remove'],
+            rand_swap=config['data']['rand_swap'],
+            eda=config['data']['eda']),
         eval_dataset=ClassificationDataset(
             config['data']['train_path'], 'val'),
         compute_metrics=risk_eval_metrics
@@ -68,7 +72,8 @@ def eval(config: dict, ckpt: str):
     print('Evaluating the fine-tuned model')
     print('Loading model from {}'.format(ckpt))
     model = SBertRiskPredictor(
-        config['model']['pretrained'], config['model']['att_dim'])
+        Path(config['model']['pretrained']),
+        config['model']['att_dim'])
     # model = Doc2VecRiskPredictor(
     #     config['model']['att_dim'], config['model']['doc_dim'])
     ckpt = torch.load(os.path.join(ckpt, 'pytorch_model.bin'))
@@ -80,8 +85,8 @@ def eval(config: dict, ckpt: str):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
-        # tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test')
-        tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test', doc2vec=config['model']['doc2vec'])
+        tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test')
+        # tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test', doc2vec=config['model']['doc2vec'])
         logits, _, _ = trainer.predict(tt_set)
         scores = np.exp(logits[:, 1]) / \
             (np.exp(logits[:, 0]) + np.exp(logits[:, 1]))

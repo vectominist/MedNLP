@@ -6,6 +6,46 @@ import torch
 import numpy as np
 
 
+def eda_random_deletion(
+        text: str,
+        ratio: float = 0.1
+    ) -> str:
+    '''
+        Implementation of EDA RD
+    '''
+
+    if int(len(text) * ratio) <= 1:
+        return text
+
+    delete_n_char = np.random.randint(1, int(len(text) * ratio))
+    indices = np.random.permutation(len(text))[:-delete_n_char]
+    indices = np.sort(indices)
+
+    return ''.join([text[i] for i in indices])
+
+
+def eda_random_swap(
+        text: str,
+        ratio: float = 0.1
+    ) -> str:
+    '''
+        Implementation of EDA RS
+    '''
+
+    if int(len(text) * ratio) <= 1:
+        return text
+
+    l = len(text)
+    swap_n_char = np.random.randint(1, int(l * ratio))
+    text = list(text)
+    for i in range(swap_n_char):
+        swap_indices = np.random.permutation(l)[:2]
+        text[swap_indices[0]], text[swap_indices[1]] = \
+            text[swap_indices[1]], text[swap_indices[0]]
+    
+    return ''.join(text)
+
+
 def sentence_random_swap(
         input_dict: dict,
         max_swap_ratio: float = 0.1) -> dict:
@@ -17,8 +57,10 @@ def sentence_random_swap(
             (the elements should all be in the same shape)
         }
     '''
-    
-    n_sent = (input_dict['attention_mask'].sum(1) > 2).long().sum()
+
+    n_sent = (input_dict['attention_mask'].sum(1) > 2).long().sum().item()
+    if int(n_sent * max_swap_ratio) <= 1:
+        return input_dict
     swap_n_sent = np.random.randint(1, int(n_sent * max_swap_ratio))
     output_dict = {}
     for i in range(swap_n_sent):
@@ -44,6 +86,8 @@ def sentence_random_removal(
     '''
 
     n_sent = input_dict['input_ids'].shape[0]
+    if int(n_sent * max_removal_ratio) <= 1:
+        return input_dict
     remove_n_sent = np.random.randint(1, int(n_sent * max_removal_ratio))
     indices = np.random.permutation(n_sent)[:-remove_n_sent]
     indices = np.sort(indices)
@@ -54,3 +98,11 @@ def sentence_random_removal(
             output_dict[key] = torch.cat(
                 [output_dict[key]] + [val[-1:, :]] * (n_sent - len(indices)), dim=0)
     return output_dict
+
+
+if __name__ == '__main__':
+    sample = '天氣真好呀優質浪漫na~我覺得其實OK辣哈如果有那麼好康的事情怎麼不跟窩講呢'
+
+    print(sample)
+    print(eda_random_deletion(sample, 0.1))
+    print(eda_random_swap(sample, 0.1))
