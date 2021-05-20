@@ -15,9 +15,6 @@ word_dict = [
     '處方籤', '回診', '關係', '肺結核', '抑鬱', '任務型', '小時',
     '結核', '破功', '單核球', '就醫'
 ]
-# jieba.suggest_freq(('護理師'), True)
-# jieba.suggest_freq(('個管師'), True)
-# jieba.suggest_freq(('家屬'), True)
 
 for w in word_dict:
     jieba.suggest_freq((w), True)
@@ -80,9 +77,15 @@ def normalize_sent_with_jieba(text: str):
     for i in range(len(text)):
         text[i] = [w for w in text[i] if w != ' ']
     text = [t[1:] for t in text if len(t) > 2]
-    text = [(t if len(t) <= 20 else t[-20:]) for t in text]
+    out_text = []
+    for t in text:
+        if len(t) <= 30:
+            out_text.append(t)
+        else:
+            for j in range(0, len(t), 30):
+                out_text.append(t[j:min(j + 30, len(t))])
 
-    return text
+    return out_text
 
 
 if __name__ == '__main__':

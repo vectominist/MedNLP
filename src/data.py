@@ -75,9 +75,6 @@ class ClassificationDataset(Dataset):
                 sent = sent[:max_doc_len] + [""] * \
                     max(0, max_doc_len - len(sent))
                 sent = [merge_chinese(s) for s in sent]
-                # sent = tokenizer_risk(
-                #     sent, return_tensors="pt", padding="max_length",
-                #     truncation="longest_first", max_length=50)
                 if split in ['train', 'val']:
                     label = int(row[3])
                     data.append((idx, sent, label))
@@ -85,9 +82,9 @@ class ClassificationDataset(Dataset):
                     data.append((idx, sent))
 
         if split == 'train':
-            data = [data[i] for i in range(len(data)) if i % val_r != 0]
+            data = [data[i] for i in range(len(data)) if (i + 1) % val_r != 0]
         elif split == 'val':
-            data = [data[i] for i in range(len(data)) if i % val_r == 0]
+            data = [data[i] for i in range(len(data)) if (i + 1) % val_r == 0]
 
         self.data = data
 
@@ -211,7 +208,7 @@ class MLMDataset(Dataset):
         Dataset for Masked LM
     '''
 
-    def __init__(self, path, split='train', val_r=10, rand_remove=False):
+    def __init__(self, path, split='train', val_r=10, eda=False):
         assert split in ['train', 'val', 'dev', 'test', 'train_all']
 
         self.path = path
@@ -235,12 +232,20 @@ class MLMDataset(Dataset):
         print('Found {} samples for {} set of the classifcation task'
               .format(len(self.data), split))
 
+        self.eda = eda
+        if eda:
+            print('Performing easy data augmentation')
+
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
+        sent = self.data[index]
+        if self.eda:
+            sent = eda_random_swap(sent)
+            sent = eda_random_deletion(sent)
         tokens = tokenizer_risk(
-            self.data[index], return_tensors="pt", padding="max_length",
+            sent, return_tensors="pt", padding="max_length",
             truncation="longest_first", max_length=50, return_special_tokens_mask=True)
         return {key: val[0] for key, val in tokens.items()}
 

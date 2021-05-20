@@ -23,12 +23,13 @@ def train(config: dict):
     model = AutoModelForMaskedLM.from_pretrained('ckiplab/albert-tiny-chinese')
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer_risk, mlm=True, mlm_probability=0.15)
-    
+
     training_args = TrainingArguments(**config['train_args'])
     trainer = Trainer(
         model=model,
         args=training_args,
-        train_dataset=MLMDataset(config['data']['train_path'], 'train_all'),
+        train_dataset=MLMDataset(
+            config['data']['train_path'], 'train_all', eda=True),
         data_collator=data_collator
     )
     trainer.train()

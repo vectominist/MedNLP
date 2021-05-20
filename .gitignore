@@ -5,6 +5,9 @@ exp
 log
 runs
 
+qa.csv
+decision.csv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

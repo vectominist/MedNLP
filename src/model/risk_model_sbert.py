@@ -5,7 +5,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 from torch import nn
 import math
-from model.encoder import Encoder, Risk_Classifier
+from model.encoder import Encoder
 
 # Mean Pooling - Take attention mask into account for correct averaging
 # Ref: https://www.sbert.net/examples/applications/computing-embeddings/README.html
@@ -98,7 +98,7 @@ class SBertRiskPredictor(nn.Module):
         # input size = B x Sentences x Length
 
         _, s_mask = self.create_mask(
-            inputs['attention_mask'].unsqueeze(-1))  # B x S x L
+            inputs['attention_mask'])  # B x S x L
 
         sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
         B, S, L = inputs['input_ids'].shape
