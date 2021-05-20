@@ -5,7 +5,10 @@ data:
   rand_remove: True
 
 model:
-  pretrained: DeepPavlov/bert-base-multilingual-cased-sentence
+  pretrained: med_mlm_ckpt
+  att_dim: 128
+  # doc_dim: 256
+  # doc2vec: doc2vec_v128_mc4
 
 train_args:
   output_dir: runs/risk_pred

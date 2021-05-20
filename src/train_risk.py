@@ -18,8 +18,8 @@ from transformers import (
 )
 # from data import ClassificationDataset
 from data_doc2vec import ClassificationDataset
-# from model.risk_model_sbert import SBertRiskPredictor
-from model.risk_model_doc2vec import Doc2VecRiskPredictor
+from model.risk_model_sbert import SBertRiskPredictor
+# from model.risk_model_doc2vec import Doc2VecRiskPredictor
 
 
 def risk_eval_metrics(eval_pred):
@@ -33,39 +33,44 @@ def train(config: dict):
     print('Fine-tuning for the Risk Evalutation Task')
     # model = AutoModelForSequenceClassification.from_pretrained(
     #     config['model']['pretrained'], num_labels=2)
-    # model = SBertRiskPredictor(config['model']['pretrained'])
-    model = Doc2VecRiskPredictor(
-        config['model']['att_dim'], config['model']['doc_dim'])
+    model = SBertRiskPredictor(
+        config['model']['pretrained'], config['model']['att_dim'])
+    
+    # model = Doc2VecRiskPredictor(
+    #     config['model']['att_dim'], config['model']['doc_dim'])
     training_args = TrainingArguments(**config['train_args'])
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=ClassificationDataset(
-            config['data']['train_path'], 'train',
-            rand_remove=config['data']['rand_remove'],
-            doc2vec=config['model']['doc2vec']),
-        eval_dataset=ClassificationDataset(
-            config['data']['train_path'], 'val',
-            doc2vec=config['model']['doc2vec']),
-        compute_metrics=risk_eval_metrics
-    )
     # trainer = Trainer(
     #     model=model,
     #     args=training_args,
     #     train_dataset=ClassificationDataset(
     #         config['data']['train_path'], 'train',
-    #         rand_remove=config['data']['rand_remove']),
+    #         rand_remove=config['data']['rand_remove'],
+    #         doc2vec=config['model']['doc2vec']),
     #     eval_dataset=ClassificationDataset(
-    #         config['data']['train_path'], 'val'),
+    #         config['data']['train_path'], 'val',
+    #         doc2vec=config['model']['doc2vec']),
     #     compute_metrics=risk_eval_metrics
     # )
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=ClassificationDataset(
+            config['data']['train_path'], 'train',
+            rand_remove=config['data']['rand_remove']),
+        eval_dataset=ClassificationDataset(
+            config['data']['train_path'], 'val'),
+        compute_metrics=risk_eval_metrics
+    )
     trainer.train()
 
 
 def eval(config: dict, ckpt: str):
     print('Evaluating the fine-tuned model')
     print('Loading model from {}'.format(ckpt))
-    model = SBertRiskPredictor(config['model']['pretrained'])
+    model = SBertRiskPredictor(
+        config['model']['pretrained'], config['model']['att_dim'])
+    # model = Doc2VecRiskPredictor(
+    #     config['model']['att_dim'], config['model']['doc_dim'])
     ckpt = torch.load(os.path.join(ckpt, 'pytorch_model.bin'))
     model.load_state_dict(ckpt)
     training_args = TrainingArguments(**config['train_args'])
@@ -75,7 +80,8 @@ def eval(config: dict, ckpt: str):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
-        tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test')
+        # tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test')
+        tt_set = ClassificationDataset(config['data']['test_paths'][i], 'test', doc2vec=config['model']['doc2vec'])
         logits, _, _ = trainer.predict(tt_set)
         scores = np.exp(logits[:, 1]) / \
             (np.exp(logits[:, 0]) + np.exp(logits[:, 1]))

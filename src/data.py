@@ -12,7 +12,9 @@ import re
 from dataset import split_sent
 import tqdm
 import numpy as np
-from augmentation import sentence_random_removal
+from augmentation import sentence_random_removal, sentence_random_swap
+from util.text_normalization import normalize_sent_with_jieba
+from util.lm_normalizer import merge_chinese
 from opencc import OpenCC
 
 cc = OpenCC('s2t')  # simplified to traditional
@@ -30,24 +32,6 @@ def tokenize(x, max_length):
     return tokenizer(
         x, return_tensors="pt", padding="max_length",
         truncation="longest_first", max_length=max_length).input_ids
-
-
-def is_mandarin(c: str) -> bool:
-    return len(re.findall(r'[\u4e00-\u9fff]+', c)) > 0
-
-
-def merge_chinese(text: str) -> str:
-    if len(text) <= 2:
-        return text
-    out_text = text[0]
-    for i in range(1, len(text) - 1):
-        if text[i] == ' ' and \
-                (is_mandarin(text[i - 1]) or
-                 is_mandarin(text[i + 1])):
-            continue
-        out_text += text[i]
-    out_text += text[-1]
-    return out_text
 
 
 def normalize_and_tokenize(text, max_doc_len=120, max_sent_len=50):
@@ -68,11 +52,13 @@ class ClassificationDataset(Dataset):
         Dataset for classification
     '''
 
-    def __init__(self, path, split='train', val_r=10, rand_remove=False):
+    def __init__(self, path, split='train', val_r=10,
+                 rand_remove=False, rand_swap=False):
         assert split in ['train', 'val', 'dev', 'test']
 
         self.path = path
         self.split = split
+        max_doc_len = 120
 
         with open(path, 'r') as fp:
             data = []
@@ -81,7 +67,14 @@ class ClassificationDataset(Dataset):
                 if i == 0:
                     continue
                 idx, sent = int(row[1]), row[2]
-                sent = normalize_and_tokenize(sent)
+                sent = normalize_sent_with_jieba(sent)
+                if len(sent) > max_doc_len:
+                    sent = sent[:max_doc_len] + [""] * \
+                        max(0, max_doc_len - len(sent))
+                sent = [merge_chinese(s) for s in sent]
+                sent = tokenizer_risk(
+                    sent, return_tensors="pt", padding="max_length",
+                    truncation="longest_first", max_length=50)
                 if split in ['train', 'val']:
                     label = int(row[3])
                     data.append((idx, sent, label))
@@ -99,8 +92,11 @@ class ClassificationDataset(Dataset):
               .format(len(self.data), split))
 
         self.rand_remove = rand_remove
+        self.rand_swap = rand_swap
         if rand_remove:
             print('Performing random sentence removal for data augmentation')
+        if rand_swap:
+            print('Performing random sentence swap for data augmentation')
 
     def get_ids(self):
         return [d[0] for d in self.data]
@@ -113,6 +109,8 @@ class ClassificationDataset(Dataset):
         # dev & test : idx, paragraph
         if self.split in ['train', 'val']:
             item = {key: val for key, val in self.data[index][1].items()}
+            if self.rand_swap:
+                item = sentence_random_swap(item)
             if self.rand_remove:
                 item = sentence_random_removal(item)
             item['labels'] = torch.tensor(self.data[index][2])
