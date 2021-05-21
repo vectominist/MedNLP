@@ -29,9 +29,10 @@ def qa_eval_metrics(eval_pred):
     return {'acc': accuracy}
 
 
-def train(config: dict, val: bool = True):
+def train(config: dict, val: bool = True, val_mode: str = 'risk'):
     print('MTL fine-tuning')
     model = SBertJointPredictor(config['model']['pretrained'])
+    model.eval_qa(val_mode == 'qa')
     tr_set = MultiTaskDataset(
         config['data']['train_path_risk'],
         config['data']['train_path_qa'],
@@ -41,18 +42,27 @@ def train(config: dict, val: bool = True):
         rand_swap=config['data']['rand_swap'],
         eda=config['data']['eda']
     )
+    dv_set = None if not val else MultiTaskDataset(
+        config['data']['train_path_risk'],
+        config['data']['train_path_qa'],
+        'val',
+        val_r=10,
+        val_mode=val_mode
+    )
     training_args = TrainingArguments(**config['train_args'])
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=tr_set,
-        compute_metrics=risk_eval_metrics
+        eval_dataset=dv_set,
+        compute_metrics=risk_eval_metrics if val_mode == 'risk' else qa_eval_metrics
     )
     trainer.train()
 
 
 def eval(config: dict, ckpt: str):
     print('Evaluating the fine-tuned model')
+
     print('Loading model from {}'.format(ckpt))
     model = SBertJointPredictor(config['model']['pretrained'])
     ckpt = torch.load(os.path.join(ckpt, 'pytorch_model.bin'))
@@ -62,23 +72,22 @@ def eval(config: dict, ckpt: str):
     trainer = Trainer(model=model, args=training_args)
 
     # Validation
-    dv_set = MultiTaskDataset(
-        config['data']['train_path_risk'],
-        config['data']['train_path_qa'],
-        'val', val_r=10
-    )
     print('Validation for Risk Prediction')
-    trainer.eval_dataset = dv_set
-    metric = trainer.evaluate()
-    print(metric)
+    dv_set = ClassificationDataset(config['data']['train_path_risk'], 'val')
+    trainer.compute_metrics = risk_eval_metrics
+    metric = trainer.evaluate(dv_set)
+    print('Val AUROC = {:.3f}'.format(metric['eval_auroc']))
 
     print('Validation for QA')
+    dv_set = QADataset2(config['data']['train_path_qa'], 'val')
     trainer.compute_metrics = qa_eval_metrics
-    metric = trainer.evaluate()
-    print(metric)
+    trainer.model.eval_qa(True)
+    metric = trainer.evaluate(dv_set)
+    print('Val ACC = {:.1f}%'.format(metric['eval_acc'] * 100.))
 
     # Evaluate Risk Prediction
     print('Evaluation for Risk Prediction')
+    trainer.model.eval_qa(False)
     for i in range(len(config['data']['test_paths_risk'])):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths_risk'][i]))
@@ -99,6 +108,7 @@ def eval(config: dict, ckpt: str):
 
     # Evaluate QA
     print('Evaluation for QA')
+    trainer.model.eval_qa(True)
     for i in range(len(config['data']['test_paths_qa'])):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths_qa'][i]))
@@ -111,8 +121,8 @@ def eval(config: dict, ckpt: str):
             writer = csv.writer(fp)
             writer.writerow(['id', 'answer'])
             ids = tt_set.get_ids()
-            assert len(ids) == len(scores)
-            for j in range(len(scores)):
+            assert len(ids) == len(answers)
+            for j in range(len(answers)):
                 writer.writerow([str(ids[j]), label2answer[answers[j]]])
 
 
@@ -122,6 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--config', type=str, help='Path to config')
     parser.add_argument('--ckpt', type=str, default='', help='Path to ckpt')
     parser.add_argument('--val', action='store_true', help='Use val set')
+    parser.add_argument('--val-risk', action='store_true', help='Use val set (risk)')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
@@ -129,6 +140,6 @@ if __name__ == '__main__':
     set_seed(config['train_args']['seed'])
 
     if args.mode == 'train':
-        train(config, val=args.val)
+        train(config, val=args.val, val_mode='risk' if args.val_risk else 'qa')
     else:
         eval(config, args.ckpt)

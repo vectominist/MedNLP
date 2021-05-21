@@ -4,30 +4,76 @@ Data Augmentation
 
 import torch
 import numpy as np
+import jieba
+import synonyms
 
 
-def eda_random_deletion(
-        text: str,
-        ratio: float = 0.1
-    ) -> str:
+with open('stopwords/processed_stopwords.txt', 'r') as fp:
+    stopwords = [w.strip() for w in fp.readlines() if w.strip() != '']
+
+
+def EDA(text: str) -> str:
     '''
-        Implementation of EDA RD
+        Easy Data Augmentation
+    '''
+    text = eda_synonym_replacement(text)
+    print(text)
+    text = eda_random_insertion(text)
+    print(text)
+    text = eda_random_swap(text)
+    print(text)
+    text = eda_random_deletion(text)
+
+    return text
+
+
+def eda_synonym_replacement(
+    text: str,
+    ratio: float = 0.1
+) -> str:
+    '''
+        Implementation of EDA SR
+    '''
+
+    seg = (','.join(jieba.cut(text))).split(',')
+    if int(len(seg) * ratio) <= 1:
+        return text
+    
+    replace_n_word = np.random.randint(1, int(len(seg) * ratio))
+    indices = np.random.permutation(len(seg))[:replace_n_word]
+    for i in indices:
+        cands = synonyms.nearby(seg[i], 2)[0]
+        if len(cands) == 0:
+            continue
+        seg[i] = cands[1]
+
+    return ''.join(seg)
+
+
+def eda_random_insertion(
+    text: str,
+    ratio: float = 0.1
+) -> str:
+    '''
+        Implementation of EDA RI
     '''
 
     if int(len(text) * ratio) <= 1:
         return text
 
-    delete_n_char = np.random.randint(1, int(len(text) * ratio))
-    indices = np.random.permutation(len(text))[:-delete_n_char]
-    indices = np.sort(indices)
+    insert_n_char = np.random.randint(1, int(len(text) * ratio))
+    indices = np.random.permutation(len(text))[:insert_n_char]
+    for i in indices:
+        idx = np.random.randint(0, len(stopwords))
+        text = text[:i] + stopwords[idx] + text[i:]
 
-    return ''.join([text[i] for i in indices])
+    return text
 
 
 def eda_random_swap(
-        text: str,
-        ratio: float = 0.1
-    ) -> str:
+    text: str,
+    ratio: float = 0.1
+) -> str:
     '''
         Implementation of EDA RS
     '''
@@ -42,8 +88,26 @@ def eda_random_swap(
         swap_indices = np.random.permutation(l)[:2]
         text[swap_indices[0]], text[swap_indices[1]] = \
             text[swap_indices[1]], text[swap_indices[0]]
-    
+
     return ''.join(text)
+
+
+def eda_random_deletion(
+    text: str,
+    ratio: float = 0.1
+) -> str:
+    '''
+        Implementation of EDA RD
+    '''
+
+    if int(len(text) * ratio) <= 1:
+        return text
+
+    delete_n_char = np.random.randint(1, int(len(text) * ratio))
+    indices = np.random.permutation(len(text))[:-delete_n_char]
+    indices = np.sort(indices)
+
+    return ''.join([text[i] for i in indices])
 
 
 def sentence_random_swap(
@@ -104,5 +168,4 @@ if __name__ == '__main__':
     sample = '天氣真好呀優質浪漫na~我覺得其實OK辣哈如果有那麼好康的事情怎麼不跟窩講呢'
 
     print(sample)
-    print(eda_random_deletion(sample, 0.1))
-    print(eda_random_swap(sample, 0.1))
+    print(EDA(sample))

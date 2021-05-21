@@ -14,8 +14,7 @@ import numpy as np
 from augmentation import (
     sentence_random_removal,
     sentence_random_swap,
-    eda_random_deletion,
-    eda_random_swap)
+    EDA)
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
 from opencc import OpenCC
@@ -99,8 +98,7 @@ class ClassificationDataset(Dataset):
         if self.split in ['train', 'val']:
             sents = self.data[index][1]
             if self.eda:
-                sents = [eda_random_swap(s) for s in sents]
-                sents = [eda_random_deletion(s) for s in sents]
+                sents = [EDA(s) for s in sents]
             item = tokenizer_risk(
                 sents, return_tensors="pt", padding="max_length",
                 truncation="longest_first", max_length=50)
@@ -228,8 +226,7 @@ class MLMDataset(Dataset):
     def __getitem__(self, index):
         sent = self.data[index]
         if self.eda:
-            sent = eda_random_swap(sent)
-            sent = eda_random_deletion(sent)
+            sent = EDA(sent)
         tokens = tokenizer_risk(
             sent, return_tensors="pt", padding="max_length",
             truncation="longest_first", max_length=50, return_special_tokens_mask=True)
@@ -242,12 +239,14 @@ class MultiTaskDataset(Dataset):
         This dataset is only designed for training.
     '''
 
-    def __init__(self, path_risk, path_qa, split='train', val_r=10,
+    def __init__(self, path_risk, path_qa, split='train', val_r=10, val_mode='risk',
                  rand_remove=False, rand_swap=False, eda=False):
         assert split in ['train', 'val']
+        assert val_mode in ['risk', 'qa']
 
         self.path_risk = path_risk
         self.path_qa = path_qa
+        self.val_mode = val_mode
         self.split = split
         max_doc_len = 120
 
@@ -343,8 +342,7 @@ class MultiTaskDataset(Dataset):
         # 1. get doc
         sents = self.risk_data[index]['doc']
         if self.eda:
-            sents = [eda_random_swap(s) for s in sents]
-            sents = [eda_random_deletion(s) for s in sents]
+            sents = [EDA(s) for s in sents]
         item = tokenizer_risk(
             sents, return_tensors="pt", padding="max_length",
             truncation="longest_first", max_length=50)
@@ -354,7 +352,7 @@ class MultiTaskDataset(Dataset):
             item = sentence_random_removal(item)
 
         # 2. get labels for risk pred
-        item['labels'] = torch.tensor(self.risk_data[index]['label'])
+        item['labels_risk'] = torch.tensor(self.risk_data[index]['label'])
 
         # 3. get stem and choices for qa
         qa_idx = np.random.randint(0, len(self.qa_data[index]))
@@ -375,6 +373,14 @@ class MultiTaskDataset(Dataset):
 
         # 4. get labels for qa
         item['labels_qa'] = torch.tensor(self.qa_data[index][qa_idx]['answer'])
+
+        if self.split == 'val':
+            if self.val_mode == 'risk':
+                item['labels'] = item['labels_risk']
+            else:
+                item['labels'] = item['labels_qa']
+            del item['labels_risk']
+            del item['labels_qa']
 
         return item
 
@@ -410,16 +416,19 @@ class QADataset2(Dataset):
                 stem = normalize(d['question']['stem'])
                 choices = [normalize(c['text'])
                            for c in d['question']['choices']]
-                d['answer'] = d['answer'].strip()
-                if d['answer'] not in choice2int.keys():
-                    answer = [k for k in range(3)
-                              if d['question']['choices'][k]['text'] == d['answer']][0]
+                if split in ['train', 'val']:
+                    d['answer'] = d['answer'].strip()
+                    if d['answer'] not in choice2int.keys():
+                        answer = [k for k in range(3)
+                                if d['question']['choices'][k]['text'] == d['answer']][0]
+                    else:
+                        answer = choice2int[d['answer']]
                 else:
-                    answer = choice2int[d['answer']]
-
-                qa_data.append(
+                    answer = None
+                data.append(
                     {
                         'id': idx,
+                        'article_id': d['article_id'],
                         'doc': sent,
                         'stem': stem,
                         'choices': choices,
@@ -430,11 +439,11 @@ class QADataset2(Dataset):
         if split == 'train':
             data = [data[i]
                        for i in range(len(data))
-                       if (i + 1) % val_r != 0]
+                       if data[i]['article_id'] % val_r != 0]
         elif split == 'val':
             data = [data[i]
                        for i in range(len(data))
-                       if (i + 1) % val_r == 0]
+                       if data[i]['article_id'] % val_r == 0]
 
         self.data = data
 
@@ -461,8 +470,7 @@ class QADataset2(Dataset):
         # 1. get doc
         sents = self.data[index]['doc']
         if self.eda:
-            sents = [eda_random_swap(s) for s in sents]
-            sents = [eda_random_deletion(s) for s in sents]
+            sents = [EDA(s) for s in sents]
         item = tokenizer_risk(
             sents, return_tensors="pt", padding="max_length",
             truncation="longest_first", max_length=50)
@@ -472,8 +480,9 @@ class QADataset2(Dataset):
             item = sentence_random_removal(item)
 
         # 2. get stem and choices for qa
+        stem = EDA(self.data[index]['stem'])
         stem = tokenizer_risk(
-            self.data[index]['stem'], return_tensors="pt",
+            stem, return_tensors="pt",
             padding="max_length", truncation="longest_first", max_length=50)
         item['stem'] = stem['input_ids'].squeeze(0)
         item['attention_mask_stem'] = stem['attention_mask'].squeeze(0)
@@ -488,7 +497,7 @@ class QADataset2(Dataset):
             [c['attention_mask'] for c in choices], dim=0)
 
         # 3. get labels
-        if self.split in ['dev', 'test']:
+        if self.split in ['train', 'val']:
             item['labels'] = torch.tensor(self.data[index]['answer'])
 
         return item

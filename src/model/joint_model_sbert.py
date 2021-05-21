@@ -14,26 +14,26 @@ class SBertJointPredictor(nn.Module):
         for Risk Prediction & Multichoice QA
     '''
 
-    def __init__(self, model_name, att_dim=128):
+    def __init__(self, model_name):
         super(SBertJointPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
-        self.attention = Encoder(312, 0.1)
+        self.attention = Encoder(312, 0.2)
         self.risk_pred_head = nn.Sequential(
             nn.Linear(312, 312),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(312, 156),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(156, 2)
         )
         self.qa_pred_head = nn.Sequential(
             nn.Linear(312 * 2, 312),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(312, 156),
             nn.ReLU(),
-            nn.Dropout(0.1),
+            nn.Dropout(0.2),
             nn.Linear(156, 1)
         )
         self.eval_qa_mode = False
@@ -90,11 +90,10 @@ class SBertJointPredictor(nn.Module):
                 choice_out, choice_inputs['attention_mask'])
             choice_embs = choice_embs.reshape(B, 3, -1)  # B x 3 x D
 
-            w_mask, _ = self.create_mask(inputs['attention_mask_stem'])
             stem_repr = self.attention(
-                doc_embs, w_mask, q=stem_embs, is_qa=True)  # B x D
+                doc_embs, s_mask, q=stem_embs, is_qa=True)  # B x D
             cat_repr = torch.cat([
-                doc_embs.unsqueeze(1).expand(B, 3, -1),
+                stem_embs.unsqueeze(1).expand(B, 3, -1),
                 choice_embs], dim=2)  # B x 3 x 2D
             qa_prediction = self.qa_pred_head(cat_repr).squeeze(2)
             # qa_prediction: B x 3
@@ -104,27 +103,30 @@ class SBertJointPredictor(nn.Module):
         prediction = self.risk_pred_head(h_repr)  # B x 2
         outputs = {'logits': prediction}
 
-        if inputs.get('labels', None):
-            # Has labels: either training or validation
-            if not self.eval_qa_mode:
-                loss = nn.CrossEntropyLoss()(prediction, inputs['labels'])
-            else:
-                # Validation mode for QA only
-                assert has_qa
-                loss = nn.CrossEntropyLoss()(qa_prediction, inputs['labels'])
-                outputs['logits'] = qa_prediction
-            outputs['loss'] = loss
-            outputs['labels'] = inputs['labels']
-        else:
-            # Testing mode only
-            if has_qa:
-                outputs['logits'] = qa_prediction
+        if inputs.get('labels_risk', None) is not None:
+            # Training
+            risk_loss = nn.CrossEntropyLoss()(
+                prediction, inputs['labels_risk'])
+            outputs['loss'] = risk_loss
 
-        if has_qa and inputs.get('labels_qa', None):
-            # 'labels_qa' will only occur when training
             qa_loss = nn.CrossEntropyLoss()(qa_prediction, inputs['labels_qa'])
             outputs['loss'] += qa_loss
-            # outputs['labels_qa'] = inputs['labels_qa']
+        else:
+            if inputs.get('labels', None) is not None:
+                # Validation
+                if not self.eval_qa_mode:
+                    loss = nn.CrossEntropyLoss()(prediction, inputs['labels'])
+                else:
+                    # Validation mode for QA only
+                    assert has_qa
+                    loss = nn.CrossEntropyLoss()(
+                        qa_prediction, inputs['labels'])
+                    outputs['logits'] = qa_prediction
+                outputs['loss'] = loss
+            else:
+                # Evaluation (testing)
+                if has_qa:
+                    outputs['logits'] = qa_prediction
 
         return outputs
 
