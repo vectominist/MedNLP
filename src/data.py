@@ -8,7 +8,6 @@ import json
 import torch
 from torch.utils.data.dataset import Dataset
 import unicodedata
-import re
 from dataset import split_sent
 import tqdm
 import numpy as np
@@ -38,19 +37,6 @@ def tokenize(x, max_length):
         truncation="longest_first", max_length=max_length).input_ids
 
 
-def normalize_and_tokenize(text, max_doc_len=120, max_sent_len=50):
-    text = unicodedata.normalize("NFKC", text).lower()
-    text = text.replace('.', '')
-    text = text.replace(' ', '')
-    text = ["".join(i) for i in split_sent(text)]
-    text = text[:max_doc_len] + [""] * max(0, max_doc_len - len(text))
-    text = tokenizer_risk(
-        text, return_tensors="pt", padding="max_length",
-        truncation="longest_first", max_length=max_sent_len)
-
-    return text
-
-
 class ClassificationDataset(Dataset):
     '''
         Dataset for classification
@@ -74,7 +60,7 @@ class ClassificationDataset(Dataset):
                 sent = normalize_sent_with_jieba(sent)
                 sent = sent[:max_doc_len] + [""] * \
                     max(0, max_doc_len - len(sent))
-                sent = [merge_chinese(s) for s in sent]
+                sent = [merge_chinese(' '.join(s)) for s in sent]
                 if split in ['train', 'val']:
                     label = int(row[3])
                     data.append((idx, sent, label))
@@ -250,13 +236,279 @@ class MLMDataset(Dataset):
         return {key: val[0] for key, val in tokens.items()}
 
 
+class MultiTaskDataset(Dataset):
+    '''
+        Dataset for multitask learning (risk pred + qa)
+        This dataset is only designed for training.
+    '''
+
+    def __init__(self, path_risk, path_qa, split='train', val_r=10,
+                 rand_remove=False, rand_swap=False, eda=False):
+        assert split in ['train', 'val']
+
+        self.path_risk = path_risk
+        self.path_qa = path_qa
+        self.split = split
+        max_doc_len = 120
+
+        # Read Risk Prediction data
+        # len(data) == number of articles
+        with open(path_risk, 'r') as fp:
+            risk_data = []
+            rows = csv.reader(fp)
+            for i, row in enumerate(rows):
+                if i == 0:
+                    continue
+                sent = row[2]
+                sent = normalize_sent_with_jieba(sent)
+                sent = sent[:max_doc_len] + [""] * \
+                    max(0, max_doc_len - len(sent))
+                sent = [merge_chinese(' '.join(s)) for s in sent]
+                risk_data.append({
+                    'id': int(row[1]),
+                    'doc': sent,
+                    'label': int(row[3])
+                })
+
+        def normalize(sent: str) -> str:
+            # Helper function for normalization
+            sent = normalize_sent_with_jieba(sent, split=False, reduce=False)
+            return merge_chinese(' '.join(sent[0]))
+
+        # Read QA data
+        with open(path_qa, 'r') as fp:
+            data_list = json.load(fp)
+            qa_data = [[] for i in range(len(risk_data))]
+            for i, d in enumerate(data_list):
+                idx = d['article_id']
+                stem = normalize(d['question']['stem'])
+                choices = [normalize(c['text'])
+                           for c in d['question']['choices']]
+                d['answer'] = d['answer'].strip()
+                if d['answer'] not in choice2int.keys():
+                    answer = [k for k in range(3)
+                              if d['question']['choices'][k]['text'] == d['answer']][0]
+                else:
+                    answer = choice2int[d['answer']]
+
+                qa_data[idx - 1].append(
+                    {
+                        'stem': stem,
+                        'choices': choices,
+                        'answer': answer
+                    }
+                )
+
+        assert len(risk_data) == len(qa_data), (len(risk_data), len(qa_data))
+        if split == 'train':
+            risk_data = [risk_data[i]
+                         for i in range(len(risk_data))
+                         if (i + 1) % val_r != 0]
+            qa_data = [qa_data[i]
+                       for i in range(len(qa_data))
+                       if (i + 1) % val_r != 0]
+        elif split == 'val':
+            risk_data = [risk_data[i]
+                         for i in range(len(risk_data))
+                         if (i + 1) % val_r == 0]
+            qa_data = [qa_data[i]
+                       for i in range(len(qa_data))
+                       if (i + 1) % val_r == 0]
+
+        self.risk_data = risk_data
+        self.qa_data = qa_data
+
+        print('Found {} samples for {} set of risk pred'
+              .format(len(self.risk_data), split))
+        print('Found {} samples for {} set of QA'
+              .format(sum([len(q) for q in self.qa_data]), split))
+
+        self.rand_remove = rand_remove
+        self.rand_swap = rand_swap
+        self.eda = eda
+        if rand_remove:
+            print('Performing random sentence removal for data augmentation')
+        if rand_swap:
+            print('Performing random sentence swap for data augmentation')
+        if eda:
+            print('Performing easy data augmentation')
+
+    def get_ids(self):
+        return [d['id'] for d in self.risk_data]
+
+    def __len__(self):
+        return len(self.risk_data)
+
+    def __getitem__(self, index):
+        # 1. get doc
+        sents = self.risk_data[index]['doc']
+        if self.eda:
+            sents = [eda_random_swap(s) for s in sents]
+            sents = [eda_random_deletion(s) for s in sents]
+        item = tokenizer_risk(
+            sents, return_tensors="pt", padding="max_length",
+            truncation="longest_first", max_length=50)
+        if self.rand_swap:
+            item = sentence_random_swap(item)
+        if self.rand_remove:
+            item = sentence_random_removal(item)
+
+        # 2. get labels for risk pred
+        item['labels'] = torch.tensor(self.risk_data[index]['label'])
+
+        # 3. get stem and choices for qa
+        qa_idx = np.random.randint(0, len(self.qa_data[index]))
+        stem = tokenizer_risk(
+            self.qa_data[index][qa_idx]['stem'], return_tensors="pt",
+            padding="max_length", truncation="longest_first", max_length=50)
+        item['stem'] = stem['input_ids'].squeeze(0)
+        item['attention_mask_stem'] = stem['attention_mask'].squeeze(0)
+        choices = [
+            tokenizer_risk(c, return_tensors="pt", padding="max_length",
+                           truncation="longest_first", max_length=50)
+            for c in self.qa_data[index][qa_idx]['choices']
+        ]
+        item['choice'] = torch.cat(
+            [c['input_ids'] for c in choices], dim=0)
+        item['attention_mask_choice'] = torch.cat(
+            [c['attention_mask'] for c in choices], dim=0)
+
+        # 4. get labels for qa
+        item['labels_qa'] = torch.tensor(self.qa_data[index][qa_idx]['answer'])
+
+        return item
+
+
+class QADataset2(Dataset):
+    '''
+        Dataset for QA (new)
+    '''
+
+    def __init__(self, path, split='train', val_r=10,
+                 rand_remove=False, rand_swap=False, eda=False):
+        assert split in ['train', 'val', 'dev', 'test']
+
+        self.path = path
+        self.split = split
+        max_doc_len = 120
+
+        def normalize(sent: str) -> str:
+            # Helper function for normalization
+            sent = normalize_sent_with_jieba(sent, split=False, reduce=False)
+            return merge_chinese(' '.join(sent[0]))
+
+        # Read QA data
+        with open(path, 'r') as fp:
+            data_list = json.load(fp)
+            data = []
+            for i, d in enumerate(data_list):
+                idx = d['id']
+                sent = normalize_sent_with_jieba(d['text'])
+                sent = sent[:max_doc_len] + [""] * \
+                    max(0, max_doc_len - len(sent))
+                sent = [merge_chinese(' '.join(s)) for s in sent]
+                stem = normalize(d['question']['stem'])
+                choices = [normalize(c['text'])
+                           for c in d['question']['choices']]
+                d['answer'] = d['answer'].strip()
+                if d['answer'] not in choice2int.keys():
+                    answer = [k for k in range(3)
+                              if d['question']['choices'][k]['text'] == d['answer']][0]
+                else:
+                    answer = choice2int[d['answer']]
+
+                qa_data.append(
+                    {
+                        'id': idx,
+                        'doc': sent,
+                        'stem': stem,
+                        'choices': choices,
+                        'answer': answer
+                    }
+                )
+
+        if split == 'train':
+            data = [data[i]
+                       for i in range(len(data))
+                       if (i + 1) % val_r != 0]
+        elif split == 'val':
+            data = [data[i]
+                       for i in range(len(data))
+                       if (i + 1) % val_r == 0]
+
+        self.data = data
+
+        print('Found {} samples for {} set of QA'
+              .format(len(self.data), split))
+        
+        self.rand_remove = rand_remove
+        self.rand_swap = rand_swap
+        self.eda = eda
+        if rand_remove:
+            print('Performing random sentence removal for data augmentation')
+        if rand_swap:
+            print('Performing random sentence swap for data augmentation')
+        if eda:
+            print('Performing easy data augmentation')
+
+    def get_ids(self):
+        return [d['id'] for d in self.data]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        # 1. get doc
+        sents = self.data[index]['doc']
+        if self.eda:
+            sents = [eda_random_swap(s) for s in sents]
+            sents = [eda_random_deletion(s) for s in sents]
+        item = tokenizer_risk(
+            sents, return_tensors="pt", padding="max_length",
+            truncation="longest_first", max_length=50)
+        if self.rand_swap:
+            item = sentence_random_swap(item)
+        if self.rand_remove:
+            item = sentence_random_removal(item)
+
+        # 2. get stem and choices for qa
+        stem = tokenizer_risk(
+            self.data[index]['stem'], return_tensors="pt",
+            padding="max_length", truncation="longest_first", max_length=50)
+        item['stem'] = stem['input_ids'].squeeze(0)
+        item['attention_mask_stem'] = stem['attention_mask'].squeeze(0)
+        choices = [
+            tokenizer_risk(c, return_tensors="pt", padding="max_length",
+                           truncation="longest_first", max_length=50)
+            for c in self.data[index]['choices']
+        ]
+        item['choice'] = torch.cat(
+            [c['input_ids'] for c in choices], dim=0)
+        item['attention_mask_choice'] = torch.cat(
+            [c['attention_mask'] for c in choices], dim=0)
+
+        # 3. get labels
+        if self.split in ['dev', 'test']:
+            item['labels'] = torch.tensor(self.data[index]['answer'])
+
+        return item
+
+
 if __name__ == '__main__':
-    # debug code
+    '''
+        Debug code
+    '''
     # cl_dataset = ClassificationDataset(
     # 'data/Train_risk_classification_ans.csv', 'train')
-    # print(cl_dataset.[0])
+    # print(cl_dataset[0])
 
-    qa_dataset = QADataset(
-        'data/Train_qa_ans.json', 'train')
-    # print(qa_dataset.__getitem__(0))
+    # qa_dataset = QADataset(
+    #     'data/Train_qa_ans.json', 'train')
     # print(qa_dataset[0])
+
+    mtl_dataset = MultiTaskDataset(
+        '../data/Train_risk_classification_ans.csv',
+        '../data/Train_qa_ans.json',
+        'train'
+    )
+    print(mtl_dataset[0])

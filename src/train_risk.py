@@ -6,7 +6,6 @@ import argparse
 import yaml
 import os
 import csv
-from pathlib import Path
 import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
@@ -83,7 +82,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', choices=['train', 'test'], help='Mode')
     parser.add_argument('--config', type=str, help='Path to config')
     parser.add_argument('--ckpt', type=str, default='', help='Path to ckpt')
-    parser.add_argument('--val', action='set_true', help='Use val set')
+    parser.add_argument('--val', action='store_true', help='Use val set')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)

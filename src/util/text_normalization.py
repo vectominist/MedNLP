@@ -52,7 +52,8 @@ def split_sent(sentence: str):
     return out
 
 
-def normalize_sent_with_jieba(text: str):
+def normalize_sent_with_jieba(
+        text: str, split: bool = True, reduce: bool = True):
     text = unicodedata.normalize("NFKC", text).lower()
     text = deEmojify(text)
     text = text.replace('.', '')
@@ -70,20 +71,24 @@ def normalize_sent_with_jieba(text: str):
     text = text.replace('nono', 'no')
     text = text.replace('nono', 'no')
     text = re.sub(r'\([^)]*\)', '', text)
-    text = ["".join(i) for i in split_sent(text)]
+    if split:
+        text = ["".join(i) for i in split_sent(text)]
+    else:
+        text = [text]
     text = [t.translate(translator) for t in text]
     text = [t.translate(translator2) for t in text]
     text = [(','.join(jieba.cut(t))).split(',') for t in text]
     for i in range(len(text)):
         text[i] = [w for w in text[i] if w != ' ']
-    text = [t[1:] for t in text if len(t) > 2]
-    out_text = []
-    for t in text:
-        if len(t) <= 30:
-            out_text.append(t)
-        else:
-            for j in range(0, len(t), 30):
-                out_text.append(t[j:min(j + 30, len(t))])
+    if reduce:
+        text = [t[1:] for t in text if len(t) > 2]
+    out_text = [(t if len(t) <= 20 else t[-20:]) for t in text]
+    # for t in text:
+    #     if len(t) <= 30:
+    #         out_text.append(t)
+    #     else:
+    #         for j in range(0, len(t), 30):
+    #             out_text.append(t[j:min(j + 30, len(t))])
 
     return out_text
 

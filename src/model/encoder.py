@@ -163,7 +163,9 @@ class Encoder(nn.Module):
         self.layernorm1 = nn.LayerNorm(d_emb)
         self.layernorm2 = nn.LayerNorm(d_emb)
 
-    def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, x: torch.Tensor, mask: torch.Tensor, 
+            q = None, is_qa: bool = False) -> torch.Tensor:
         # Shape: [B, S, H]
         emb = self.layernorm1(self.linear(x))
 
@@ -171,6 +173,9 @@ class Encoder(nn.Module):
         emb = self.pe(emb)
 
         # Shape: [B, H]
-        emb = self.layernorm2(self.attn_emb(emb, mask))
+        if is_qa:
+            emb = self.layernorm2(self.attn_emb.qa(emb, mask, q))
+        else:
+            emb = self.layernorm2(self.attn_emb(emb, mask))
 
         return emb
