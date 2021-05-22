@@ -14,16 +14,11 @@ class SBertQA(nn.Module):
     def __init__(self, model_name):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
-        
-        self.attention = Encoder(312, 0.1)
         self.pred_head = nn.Sequential(
             nn.Linear(312, 312),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Dropout(0.1),
-            nn.Linear(312, 156),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(156, 1)
+            nn.Linear(312, 1)
         )
 
     def forward(self, **inputs):
@@ -33,7 +28,8 @@ class SBertQA(nn.Module):
         for key, val in inputs.items():
             inputs[key] = val.reshape(B * 3, L)
         
-        out = self.encoder(**inputs).reshape(B, 3, 312)
+        out = self.encoder(**inputs)
+        out = out[0].reshape(B, 3, L, 312)[:, :, 0, :]
         prediction = self.pred_head(out).squeeze(2)  # B x 3
 
         outputs = {'logits': prediction}

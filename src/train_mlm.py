@@ -1,12 +1,9 @@
 '''
-Masked LM Fine-tuning
+    Masked LM Fine-tuning
 '''
 
 import argparse
 import yaml
-import os
-import csv
-import numpy as np
 import torch
 from transformers import (
     AutoModelForMaskedLM,
@@ -29,7 +26,7 @@ def train(config: dict):
         model=model,
         args=training_args,
         train_dataset=MLMDataset(
-            config['data']['train_path'], 'train_all', eda=True),
+            config['data']['train_path'], 'train_all', eda=False),
         data_collator=data_collator
     )
     trainer.train()

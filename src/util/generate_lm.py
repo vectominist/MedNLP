@@ -18,7 +18,9 @@ def read_risk_data(path: str):
             if i == 0:
                 continue
             sent = row[2]
-            sent = normalize_sent_with_jieba(sent)
+            sent = cc.convert(sent)
+            sent = normalize_sent_with_jieba(
+                sent, reduce=False, max_sent_len=40)
             sents += sent
             docs += 1
             doc_sents.append(len(sent))
@@ -27,9 +29,9 @@ def read_risk_data(path: str):
         doc_sents = np.array(doc_sents)
         lens = np.array(lens)
         print('Found total {} dialogues'.format(docs))
-        print('Sentences in a dialogue: AVG = {:.1f} , MAX = {:.1f}, MED = {}'
+        print('Sentences in a dialogue: AVG = {:.1f} , MAX = {:.1f} , MED = {}'
             .format(np.mean(doc_sents), np.max(doc_sents), np.median(doc_sents)))
-        print('Sentences length       : AVG = {:.1f} , MAX = {:.1f}, MED = {}'
+        print('Sentences length       : AVG = {:.1f} , MAX = {:.1f} , MED = {}'
             .format(np.mean(lens), np.max(lens), np.median(lens)))
 
         return sents
@@ -70,7 +72,7 @@ def read_MedicalDialogue_data(path: str):
 def write_to_txt(data: list, path: str):
     with open(path, 'w') as fp:
         for d in data:
-            fp.write(' '.join(d) + '\n')
+            fp.write(''.join(d) + '\n')
 
 
 if __name__ == '__main__':

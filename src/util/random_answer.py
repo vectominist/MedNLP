@@ -5,7 +5,7 @@ def generate_qa_same(ids: int = 192, path: str = 'qa.csv'):
         writer = csv.writer(fp)
         writer.writerow(['id', 'answer'])
         for i in range(ids):
-            writer.writerow([str(i + 1), 'A'])
+            writer.writerow([str(i + 1), 'B'])
 
 
 if __name__ == '__main__':

@@ -4,7 +4,8 @@ import re
 import string
 
 chinese_punctuations = r"""，。、！？‘’·⋯”“"""
-remove_punctuations = string.punctuation + chinese_punctuations
+english_punctuations = string.punctuation.replace(':', '')
+remove_punctuations = english_punctuations + chinese_punctuations
 translator = str.maketrans(remove_punctuations, ' ' * len(remove_punctuations))
 remove_chars = '嗯恩啊嘛呃唉哎誒欸痾喔ㄟ哦阿齁啦嘿哼亨蛤吧嗎呵餒'
 translator2 = str.maketrans(remove_chars, ' ' * len(remove_chars))
@@ -53,7 +54,18 @@ def split_sent(sentence: str):
 
 
 def normalize_sent_with_jieba(
-        text: str, split: bool = True, reduce: bool = True):
+        text: str, split: bool = True, reduce: bool = True,
+        max_sent_len: int = 20):
+    '''
+        Text normalization with jieba
+        Inputs:
+            text: input document
+            split: whether to split into sentences (if input is a dialogue)
+            reduce: remove speaker name
+            max_sent_len: maximum sentence length
+        Output:
+            list of str
+    '''
     text = unicodedata.normalize("NFKC", text).lower()
     text = deEmojify(text)
     text = text.replace('.', '')
@@ -82,17 +94,19 @@ def normalize_sent_with_jieba(
         text[i] = [w for w in text[i] if w != ' ']
     if reduce:
         text = [t[1:] for t in text if len(t) > 2]
-    out_text = [(t if len(t) <= 20 else t[-20:]) for t in text]
-    # for t in text:
-    #     if len(t) <= 30:
-    #         out_text.append(t)
-    #     else:
-    #         for j in range(0, len(t), 30):
-    #             out_text.append(t[j:min(j + 30, len(t))])
+    else:
+        text = [t for t in text if len(t) > 2]
+    out_text = [(t if len(t) <= max_sent_len else t[:1] + t[-max_sent_len:])
+                for t in text]
 
     return out_text
 
 
 if __name__ == '__main__':
     text = r"""個管師：好喔，我剛剛後來確認了一下你抽血的狀況（好的），哈哈～對，你下一次抽血就10月20到11月1號。民眾：好。個管師：然後廖醫師有幫你排回診2月17號。民眾：好。個管師：這樣ok嗎？民眾：好。個管師：然後你現階段……民眾：是。個管師：你跟你男朋友都沒有約嗎？民眾：沒有啊。個管師：然後這一個月沒有性行為？民眾：也沒有阿。個管師：你們沒有住在一起對不對？民眾：有。個管師：你們有住在一起，你們有住在一起，但是性行為可以預期嗎？民眾：蛤，可以啊。個管師：呵～真的喔？民眾：一個，因為我看，我是看著一個就是現實社會的狀況比那個更重的人，所以……個管師：什麼意思？民眾：就是，因為他現在都是工讀阿，所以他現在打了兩份工，所以那個時間，然後所以時間到我一定逼他去工作，呵呵～個管師：喔他現在在，誒他現在在工作了？民眾：他現在是在工作啦。個管師：他剛畢業嗎？民眾：沒有阿。個管師：畢業兩年？民眾：一段時間了。個管師：一年？民眾：已經超過了，對然後……個管師：那位什麼還在考license？"""
-    print(normalize_sent_with_jieba(text))
+
+    # out = normalize_sent_with_jieba(text)
+    out = normalize_sent_with_jieba(text, reduce=False, max_sent_len=30)
+    out = [' '.join(t) for t in out]
+    for t in out:
+        print(''.join(t.split(' ')))

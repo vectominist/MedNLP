@@ -538,7 +538,7 @@ class QADataset3(QADataset2):
         sents = self.data[index]['doc']
         if self.eda:
             sents = [EDA(s) for s in sents]
-        doc = ''.join(sent)[-400:]
+        doc = (' '.join(sents))[-400:]
 
         # 2. get stem and choices for qa
         stem = self.data[index]['stem']
@@ -546,7 +546,7 @@ class QADataset3(QADataset2):
             stem = EDA(stem)
 
         # 3. collect input
-        seq = ['[CLS]{}[SEP]{}[SEP]{}[SEP]'.format(doc, stem, c)
+        seq = ['{}[SEP]{}[SEP]{}'.format(doc, stem, c)
                for c in self.data[index]['choices']]
 
         # 4. tokenize
