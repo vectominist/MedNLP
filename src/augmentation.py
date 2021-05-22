@@ -1,14 +1,14 @@
 '''
-Data Augmentation
+    Data Augmentation
 '''
 
 import torch
 import numpy as np
-import jieba
-import synonyms
+# import jieba
+# import synonyms
 
 
-with open('stopwords/processed_stopwords.txt', 'r') as fp:
+with open('src/stopwords/processed_stopwords.txt', 'r') as fp:
     stopwords = [w.strip() for w in fp.readlines() if w.strip() != '']
 
 
@@ -16,12 +16,10 @@ def EDA(text: str) -> str:
     '''
         Easy Data Augmentation
     '''
-    text = eda_synonym_replacement(text)
-    print(text)
+    
+    # text = eda_synonym_replacement(text)
     text = eda_random_insertion(text)
-    print(text)
     text = eda_random_swap(text)
-    print(text)
     text = eda_random_deletion(text)
 
     return text
@@ -33,6 +31,8 @@ def eda_synonym_replacement(
 ) -> str:
     '''
         Implementation of EDA SR
+        FIXME: Using jieba + synonyms is very slow.
+               Should not be used during training.
     '''
 
     seg = (','.join(jieba.cut(text))).split(',')

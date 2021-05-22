@@ -1,5 +1,5 @@
 '''
-Datasets
+    Datasets
 '''
 
 from transformers import AutoTokenizer, BertTokenizerFast
@@ -316,11 +316,19 @@ class MultiTaskDataset(Dataset):
 
         self.risk_data = risk_data
         self.qa_data = qa_data
+        self.tot_qa_data = sum([len(q) for q in self.qa_data])
+        self.qa_len_accum = [0] * len(self.qa_data)
+        self.index2qa = [0] * self.tot_qa_data
+        for i in range(1, len(self.qa_len_accum)):
+            self.qa_len_accum[i] = \
+                self.qa_len_accum[i - 1] + len(self.qa_data[i - 1])
+            for j in range(self.qa_len_accum[i], self.qa_len_accum[i] + len(self.qa_data[i])):
+                self.index2qa[j] = i
 
         print('Found {} samples for {} set of risk pred'
               .format(len(self.risk_data), split))
         print('Found {} samples for {} set of QA'
-              .format(sum([len(q) for q in self.qa_data]), split))
+              .format(self.tot_qa_data, split))
 
         self.rand_remove = rand_remove
         self.rand_swap = rand_swap
@@ -336,11 +344,18 @@ class MultiTaskDataset(Dataset):
         return [d['id'] for d in self.risk_data]
 
     def __len__(self):
-        return len(self.risk_data)
+        if self.split == 'train' or self.val_mode == 'risk':
+            return len(self.risk_data)
+        else:
+            return sum([len(q) for q in self.qa_data])
 
     def __getitem__(self, index):
         # 1. get doc
-        sents = self.risk_data[index]['doc']
+        if self.split == 'train' or self.val_mode == 'risk':
+            risk_idx = index
+        else:
+            risk_idx = self.index2qa[index]
+        sents = self.risk_data[risk_idx]['doc']
         if self.eda:
             sents = [EDA(s) for s in sents]
         item = tokenizer_risk(
@@ -352,10 +367,14 @@ class MultiTaskDataset(Dataset):
             item = sentence_random_removal(item)
 
         # 2. get labels for risk pred
-        item['labels_risk'] = torch.tensor(self.risk_data[index]['label'])
+        item['labels_risk'] = torch.tensor(self.risk_data[risk_idx]['label'])
 
         # 3. get stem and choices for qa
-        qa_idx = np.random.randint(0, len(self.qa_data[index]))
+        if self.split == 'train' or self.val_mode == 'risk':
+            qa_idx = np.random.randint(0, len(self.qa_data[index]))
+        else:
+            qa_idx = self.qa_len_accum[self.index2qa[index]] - index
+            index = self.index2qa[index]
         stem = tokenizer_risk(
             self.qa_data[index][qa_idx]['stem'], return_tensors="pt",
             padding="max_length", truncation="longest_first", max_length=50)
@@ -420,7 +439,7 @@ class QADataset2(Dataset):
                     d['answer'] = d['answer'].strip()
                     if d['answer'] not in choice2int.keys():
                         answer = [k for k in range(3)
-                                if d['question']['choices'][k]['text'] == d['answer']][0]
+                                  if d['question']['choices'][k]['text'] == d['answer']][0]
                     else:
                         answer = choice2int[d['answer']]
                 else:
@@ -438,18 +457,18 @@ class QADataset2(Dataset):
 
         if split == 'train':
             data = [data[i]
-                       for i in range(len(data))
-                       if data[i]['article_id'] % val_r != 0]
+                    for i in range(len(data))
+                    if data[i]['article_id'] % val_r != 0]
         elif split == 'val':
             data = [data[i]
-                       for i in range(len(data))
-                       if data[i]['article_id'] % val_r == 0]
+                    for i in range(len(data))
+                    if data[i]['article_id'] % val_r == 0]
 
         self.data = data
 
         print('Found {} samples for {} set of QA'
               .format(len(self.data), split))
-        
+
         self.rand_remove = rand_remove
         self.rand_swap = rand_swap
         self.eda = eda
@@ -480,7 +499,9 @@ class QADataset2(Dataset):
             item = sentence_random_removal(item)
 
         # 2. get stem and choices for qa
-        stem = EDA(self.data[index]['stem'])
+        stem = self.data[index]['stem']
+        if self.eda:
+            stem = EDA(stem)
         stem = tokenizer_risk(
             stem, return_tensors="pt",
             padding="max_length", truncation="longest_first", max_length=50)
@@ -497,6 +518,42 @@ class QADataset2(Dataset):
             [c['attention_mask'] for c in choices], dim=0)
 
         # 3. get labels
+        if self.split in ['train', 'val']:
+            item['labels'] = torch.tensor(self.data[index]['answer'])
+
+        return item
+
+
+class QADataset3(QADataset2):
+    '''
+        Dataset for QA (new for single task training)
+    '''
+
+    def __init__(self, path, split='train', val_r=10,
+                 rand_remove=False, rand_swap=False, eda=False):
+        super().__init__(path, split, val_r, rand_remove, rand_swap, eda)
+
+    def __getitem__(self, index):
+        # 1. get doc
+        sents = self.data[index]['doc']
+        if self.eda:
+            sents = [EDA(s) for s in sents]
+        doc = ''.join(sent)[-400:]
+
+        # 2. get stem and choices for qa
+        stem = self.data[index]['stem']
+        if self.eda:
+            stem = EDA(stem)
+
+        # 3. collect input
+        seq = ['[CLS]{}[SEP]{}[SEP]{}[SEP]'.format(doc, stem, c)
+               for c in self.data[index]['choices']]
+
+        # 4. tokenize
+        item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
+                truncation="longest_first", max_length=512)
+
+        # 5. get labels
         if self.split in ['train', 'val']:
             item['labels'] = torch.tensor(self.data[index]['answer'])
 

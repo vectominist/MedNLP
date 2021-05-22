@@ -18,6 +18,7 @@ class SBertJointPredictor(nn.Module):
         super(SBertJointPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
         self.attention = Encoder(312, 0.2)
+        self.qa_attention = Encoder(312, 0.2)
         self.risk_pred_head = nn.Sequential(
             nn.Linear(312, 312),
             nn.ReLU(),
@@ -28,7 +29,7 @@ class SBertJointPredictor(nn.Module):
             nn.Linear(156, 2)
         )
         self.qa_pred_head = nn.Sequential(
-            nn.Linear(312 * 2, 312),
+            nn.Linear(312 * 4, 312),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(312, 156),
@@ -88,13 +89,20 @@ class SBertJointPredictor(nn.Module):
             choice_out = self.sentsence_encoder(**choice_inputs)
             choice_embs = mean_pooling(
                 choice_out, choice_inputs['attention_mask'])
-            choice_embs = choice_embs.reshape(B, 3, -1)  # B x 3 x D
+            # choice_embs = choice_embs.reshape(B, 3, -1)  # B x 3 x D
 
-            stem_repr = self.attention(
+            stem_repr = self.qa_attention(
                 doc_embs, s_mask, q=stem_embs, is_qa=True)  # B x D
+            choice_repr = self.qa_attention(
+                doc_embs.repeat(3, 1, 1), 
+                s_mask.repeat(3, 1, 1), 
+                q=choice_embs, is_qa=True)  # 3B x D
+            choice_repr = choice_repr.reshape(B, 3, -1)
             cat_repr = torch.cat([
+                stem_repr.unsqueeze(1).expand(B, 3, -1),
                 stem_embs.unsqueeze(1).expand(B, 3, -1),
-                choice_embs], dim=2)  # B x 3 x 2D
+                choice_repr,
+                choice_embs.reshape(B, 3, -1)], dim=2)  # B x 3 x 4D
             qa_prediction = self.qa_pred_head(cat_repr).squeeze(2)
             # qa_prediction: B x 3
 
