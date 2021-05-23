@@ -12,6 +12,10 @@ from model.encoder import Encoder
 
 
 def mean_pooling(model_output, attention_mask):
+    '''
+        Mean Pooling - Take attention mask into account for correct averaging
+        Ref: https://www.sbert.net/examples/applications/computing-embeddings/README.html
+    '''
     # First element of model_output contains all token embeddings
     token_embeddings = model_output[0]
     input_mask_expanded = attention_mask.unsqueeze(
@@ -31,7 +35,7 @@ class DocumentRNN(nn.Module):
         # x_len: B
         B = len(x_len)
         h, _ = self.rnn(x)  # h: B x S x D'
-        
+
         return h[range(B), x_len]
 
 
@@ -60,7 +64,8 @@ class DocumentAttention(nn.Module):
             else:
                 h = x
         h = self.dropout(h)
-        align = (self.Wk(h[range(B), x_len, :].unsqueeze(1)) * self.Wq(h)).sum(2)
+        align = (self.Wk(h[range(B), x_len, :].unsqueeze(1))
+                 * self.Wq(h)).sum(2)
         # align: B x S
         for b in range(B):
             align[b, x_len[b]:] = -math.inf
@@ -78,11 +83,25 @@ class SBertRiskPredictor(nn.Module):
     '''
         Sentence Bert (or other pre-trained Bert) for Risk Prediction
     '''
-    def __init__(self, model_name, att_dim=128):
+
+    def __init__(self, model_name, post_encoder_type='transformer'):
         super(SBertRiskPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
-        # self.attention = DocumentAttention(312, att_dim, rnn=True)
-        # self.attention = DocumentRNN(312, att_dim)
+
+        assert post_encoder_type in \
+            ['transformer', 'gru', 'lstm'], post_encoder_type
+        if post_encoder_type == 'transformer':
+            self.post_encoder = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
+        elif post_encoder_type == 'gru':
+            self.post_encoder = nn.GRU(
+                312, 156, 2, dropout=0.1,
+                batch_first=True, bidirectional=True)
+        elif post_encoder_type == 'lstm':
+            self.post_encoder = nn.LSTM(
+                312, 156, 2, dropout=0.1,
+                batch_first=True, bidirectional=True)
+
         self.attention = Encoder(312, 0.1)
         self.pred_head = nn.Sequential(
             nn.Linear(312, 312),
@@ -97,8 +116,8 @@ class SBertRiskPredictor(nn.Module):
     def forward(self, **inputs):
         # input size = B x Sentences x Length
 
-        _, s_mask = self.create_mask(
-            inputs['attention_mask'])  # B x S x L
+        _, s_mask = self.create_mask(inputs['attention_mask'])
+        # s_mask: B x S x 1
 
         sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
         B, S, L = inputs['input_ids'].shape
@@ -109,7 +128,13 @@ class SBertRiskPredictor(nn.Module):
         sent_embs = mean_pooling(out, inputs['attention_mask'])
         sent_embs = sent_embs.reshape(B, S, -1)
 
-        # h_repr = self.attention(sent_embs, sent_lens - 1)
+        if type(self.post_encoder) in [nn.GRU, nn.LSTM]:
+            sent_embs, _ = self.post_encoder(sent_embs)
+        elif type(self.post_encoder) == nn.TransformerEncoder:
+            sent_embs = self.post_encoder(
+                self.attention.pe(sent_embs).transpose(0, 1),
+                src_key_padding_mask=s_mask.squeeze(2)).transpose(0, 1)
+
         h_repr = self.attention(sent_embs, s_mask)
         prediction = self.pred_head(h_repr)
 
@@ -121,7 +146,7 @@ class SBertRiskPredictor(nn.Module):
             outputs['labels'] = inputs['labels']
 
         return outputs
-    
+
     def create_mask(self, batch_prev_tkids: torch.Tensor) -> torch.Tensor:
         # Create padding self attention masks.
         # Shape: [B, `max_doc_len`, `max_sent_len`, 1]
@@ -130,7 +155,7 @@ class SBertRiskPredictor(nn.Module):
         w_pad_mask = w_pad_mask.unsqueeze(-1)
 
         s_pad_mask = batch_prev_tkids.sum(-1)
-        s_pad_mask = s_pad_mask == 0
+        s_pad_mask = s_pad_mask <= 2
         s_pad_mask = s_pad_mask.unsqueeze(-1)
 
         return w_pad_mask, s_pad_mask

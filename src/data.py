@@ -36,6 +36,13 @@ def tokenize(x, max_length):
         truncation="longest_first", max_length=max_length).input_ids
 
 
+def crop_doc(sents, max_doc_len=120):
+    if len(sents) < max_doc_len:
+        return sents + [""] * (max_doc_len - len(sents))
+    else:
+        return sents[-max_doc_len:]
+
+
 class ClassificationDataset(Dataset):
     '''
         Dataset for classification
@@ -56,9 +63,9 @@ class ClassificationDataset(Dataset):
                 if i == 0:
                     continue
                 idx, sent = int(row[1]), row[2]
-                sent = normalize_sent_with_jieba(sent)
-                sent = sent[:max_doc_len] + [""] * \
-                    max(0, max_doc_len - len(sent))
+                sent = normalize_sent_with_jieba(
+                    sent, reduce=False, max_sent_len=50)
+                sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 if split in ['train', 'val']:
                     label = int(row[3])
@@ -152,8 +159,7 @@ class QADataset(Dataset):
 
                 text = unicodedata.normalize("NFKC", text)
                 text = ["".join(i) for i in split_sent(text)]
-                text = text[:max_doc_len] + [""] * \
-                    max(0, max_doc_len - len(text))
+                text = crop_doc(text, max_doc_len)
                 stem = unicodedata.normalize("NFKC", stem)
                 choices = [unicodedata.normalize("NFKC", i) for i in choices]
 
@@ -261,8 +267,7 @@ class MultiTaskDataset(Dataset):
                     continue
                 sent = row[2]
                 sent = normalize_sent_with_jieba(sent)
-                sent = sent[:max_doc_len] + [""] * \
-                    max(0, max_doc_len - len(sent))
+                sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 risk_data.append({
                     'id': int(row[1]),
@@ -433,9 +438,8 @@ class QADataset2(Dataset):
             for i, d in enumerate(data_list):
                 idx = d['id']
                 sent = normalize_sent_with_jieba(
-                    d['text'], reduce=False, max_sent_len=40)
-                sent = sent[:max_doc_len] + [""] * \
-                    max(0, max_doc_len - len(sent))
+                    d['text'], reduce=False, max_sent_len=50)
+                sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 stem = normalize(d['question']['stem'])
                 choices = [normalize(c['text'])
