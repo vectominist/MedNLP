@@ -15,6 +15,7 @@ class SBertQA(nn.Module):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
         self.pred_head = nn.Sequential(
+            nn.Dropout(0.1),
             nn.Linear(312, 312),
             nn.Tanh(),
             nn.Dropout(0.1),

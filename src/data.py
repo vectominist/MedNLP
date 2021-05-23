@@ -229,7 +229,8 @@ class MLMDataset(Dataset):
             sent = EDA(sent)
         tokens = tokenizer_risk(
             sent, return_tensors="pt", padding="max_length",
-            truncation="longest_first", max_length=50, return_special_tokens_mask=True)
+            truncation="longest_first", max_length=512, 
+            return_special_tokens_mask=True)
         return {key: val[0] for key, val in tokens.items()}
 
 
@@ -271,7 +272,8 @@ class MultiTaskDataset(Dataset):
 
         def normalize(sent: str) -> str:
             # Helper function for normalization
-            sent = normalize_sent_with_jieba(sent, split=False, reduce=False)
+            sent = normalize_sent_with_jieba(
+                sent, split=False, reduce=False, max_sent_len=50)
             return merge_chinese(' '.join(sent[0]))
 
         # Read QA data
@@ -419,7 +421,9 @@ class QADataset2(Dataset):
 
         def normalize(sent: str) -> str:
             # Helper function for normalization
-            sent = normalize_sent_with_jieba(sent, split=False, reduce=False)
+            sent = normalize_sent_with_jieba(
+                sent, split=False, reduce=False, 
+                max_sent_len=50, remove_short=False)
             return merge_chinese(' '.join(sent[0]))
 
         # Read QA data
@@ -428,7 +432,8 @@ class QADataset2(Dataset):
             data = []
             for i, d in enumerate(data_list):
                 idx = d['id']
-                sent = normalize_sent_with_jieba(d['text'])
+                sent = normalize_sent_with_jieba(
+                    d['text'], reduce=False, max_sent_len=40)
                 sent = sent[:max_doc_len] + [""] * \
                     max(0, max_doc_len - len(sent))
                 sent = [merge_chinese(' '.join(s)) for s in sent]
@@ -538,7 +543,7 @@ class QADataset3(QADataset2):
         sents = self.data[index]['doc']
         if self.eda:
             sents = [EDA(s) for s in sents]
-        doc = (' '.join(sents))[-400:]
+        doc = (' '.join(sents))[-450:]
 
         # 2. get stem and choices for qa
         stem = self.data[index]['stem']
@@ -548,6 +553,7 @@ class QADataset3(QADataset2):
         # 3. collect input
         seq = ['{}[SEP]{}[SEP]{}'.format(doc, stem, c)
                for c in self.data[index]['choices']]
+        seq = [s if len(s) <= 518 else s[-518:] for s in seq]
 
         # 4. tokenize
         item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",

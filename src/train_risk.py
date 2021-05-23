@@ -32,12 +32,11 @@ def train(config: dict, val: bool = True):
     model = SBertRiskPredictor(config['model']['pretrained'])
     tr_set = ClassificationDataset(
         config['data']['train_path'], 'train',
-        val_r=10 if val else 10000,
+        val_r=10000,  # FIXME: ignore val
         rand_remove=config['data']['rand_remove'],
         rand_swap=config['data']['rand_swap'],
         eda=config['data']['eda'])
-    dv_set = None if not val else \
-        ClassificationDataset(config['data']['train_path'], 'val')
+    dv_set = ClassificationDataset(config['data']['val_path'], 'train')
     training_args = TrainingArguments(**config['train_args'])
     trainer = Trainer(
         model=model,

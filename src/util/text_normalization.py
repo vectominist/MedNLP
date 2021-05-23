@@ -55,7 +55,7 @@ def split_sent(sentence: str):
 
 def normalize_sent_with_jieba(
         text: str, split: bool = True, reduce: bool = True,
-        max_sent_len: int = 20):
+        max_sent_len: int = 20, remove_short: bool = True):
     '''
         Text normalization with jieba
         Inputs:
@@ -95,7 +95,8 @@ def normalize_sent_with_jieba(
     if reduce:
         text = [t[1:] for t in text if len(t) > 2]
     else:
-        text = [t for t in text if len(t) > 2]
+        if remove_short:
+            text = [t for t in text if len(t) > 2]
     out_text = [(t if len(t) <= max_sent_len else t[:1] + t[-max_sent_len:])
                 for t in text]
 
