@@ -17,8 +17,8 @@ class SBertQA(nn.Module):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
         self.attention = Encoder(312, 0.1)
-        self.post_encoder = nn.TransformerEncoder(
-            nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
+        # self.post_encoder = nn.TransformerEncoder(
+        #     nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
         self.pred_head = nn.Sequential(
             nn.Dropout(0.1),
             nn.Linear(312, 312),
@@ -53,9 +53,10 @@ class SBertQA(nn.Module):
                .reshape(B, C // 3, 3, 312)
                .transpose(1, 2)
                .reshape(B * 3, C // 3, 312))
-        out = self.post_encoder(
-            self.attention.pe(out).transpose(0, 1),
-            src_key_padding_mask=mask.squeeze(2)).transpose(0, 1)
+        # FIXME: adding transformer does not improve much
+        # out = self.post_encoder(
+        #     self.attention.pe(out).transpose(0, 1),
+        #     src_key_padding_mask=mask.squeeze(2)).transpose(0, 1)
         h_repr = self.attention(out, mask)  # 3B x D
         h_repr = h_repr.reshape(B, 3, 312)
         prediction = self.pred_head(h_repr).squeeze(2)

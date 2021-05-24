@@ -54,7 +54,7 @@ class ClassificationDataset(Dataset):
 
         self.path = path
         self.split = split
-        max_doc_len = 170
+        max_doc_len = 120
 
         with open(path, 'r') as fp:
             data = []
@@ -64,7 +64,7 @@ class ClassificationDataset(Dataset):
                     continue
                 idx, sent = int(row[1]), row[2]
                 sent = normalize_sent_with_jieba(
-                    sent, reduce=False, max_sent_len=70)
+                    sent, reduce=False, max_sent_len=50)
                 sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 if split in ['train', 'val']:
