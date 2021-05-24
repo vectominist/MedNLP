@@ -23,6 +23,10 @@ label2answer = ['A', 'B', 'C']
 
 def qa_eval_metrics(eval_pred):
     logits, labels = eval_pred
+    if type(logits) == tuple:
+        logits = logits[0]
+    if type(labels) == tuple:
+        labels = labels[0]
     answer = np.argmax(logits, axis=1)
     accuracy = (answer == labels).astype(float).mean()
     return {'acc': accuracy}
@@ -33,7 +37,7 @@ def train(config: dict, val: bool = True):
     model = SBertQA(config['model']['pretrained'])
     tr_set = QADataset3(
         config['data']['train_path'], 'train',
-        val_r=10000,  # FIXME: ignore val
+        val_r=10000,
         rand_remove=config['data']['rand_remove'],
         rand_swap=config['data']['rand_swap'],
         eda=config['data']['eda'],
@@ -66,7 +70,8 @@ def eval(config: dict, ckpt: str):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
-        tt_set = QADataset3(config['data']['test_paths'][i], 'test')
+        tt_set = QADataset3(config['data']['test_paths'][i], 'test',
+                            doc_splits=config['data'].get('doc_splits', 1))
         logits, _, _ = trainer.predict(tt_set)
         answers = np.argmax(logits, axis=1)
 

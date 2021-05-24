@@ -439,7 +439,7 @@ class QADataset2(Dataset):
                 idx = d['id']
                 sent = normalize_sent_with_jieba(
                     d['text'], reduce=False, max_sent_len=70)
-                sent = crop_doc(sent, max_doc_len)
+                # sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 stem = normalize(d['question']['stem'])
                 choices = [normalize(c['text'])
@@ -573,7 +573,10 @@ class QADataset3(QADataset2):
 
     def __getitem__(self, index):
         # 1. get doc
-        sents = self.data[index]['doc']
+        if self.doc_splits == 1:
+            sents = self.data[index]['doc']
+        else:
+            sents = self.data[index]['doc_split']
         if self.eda:
             sents = [EDA(s) for s in sents]
 
@@ -601,7 +604,7 @@ class QADataset3(QADataset2):
 
         # 5. get labels
         if self.split in ['train', 'val']:
-            item['labels'] = torch.tensor(self.data[index]['answer'])
+            item['label'] = self.data[index]['answer']
 
         # 6. add number of chunks of the document
         if self.doc_splits > 1:
@@ -631,7 +634,8 @@ if __name__ == '__main__':
 
     qa_dataset = QADataset3(
         '../data/train_qa_tr-dv.json', 'train', doc_splits=8)
-    print(qa_dataset.data[0]['doc_split'])
+    print(qa_dataset.data[3]['doc_split'])
+    print(qa_dataset.data[3]['doc'])
     print(qa_dataset[3])
     doc_lens = [len(' '.join(d['doc'])) for d in qa_dataset.data]
     doc_lens = np.array(doc_lens)
