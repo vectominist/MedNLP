@@ -36,7 +36,7 @@ def tokenize(x, max_length):
         truncation="longest_first", max_length=max_length).input_ids
 
 
-def crop_doc(sents, max_doc_len=120):
+def crop_doc(sents, max_doc_len=170):
     if len(sents) < max_doc_len:
         return sents + [""] * (max_doc_len - len(sents))
     else:
@@ -54,7 +54,7 @@ class ClassificationDataset(Dataset):
 
         self.path = path
         self.split = split
-        max_doc_len = 120
+        max_doc_len = 170
 
         with open(path, 'r') as fp:
             data = []
@@ -64,7 +64,7 @@ class ClassificationDataset(Dataset):
                     continue
                 idx, sent = int(row[1]), row[2]
                 sent = normalize_sent_with_jieba(
-                    sent, reduce=False, max_sent_len=50)
+                    sent, reduce=False, max_sent_len=70)
                 sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 if split in ['train', 'val']:
@@ -235,7 +235,7 @@ class MLMDataset(Dataset):
             sent = EDA(sent)
         tokens = tokenizer_risk(
             sent, return_tensors="pt", padding="max_length",
-            truncation="longest_first", max_length=512, 
+            truncation="longest_first", max_length=512,
             return_special_tokens_mask=True)
         return {key: val[0] for key, val in tokens.items()}
 
@@ -427,7 +427,7 @@ class QADataset2(Dataset):
         def normalize(sent: str) -> str:
             # Helper function for normalization
             sent = normalize_sent_with_jieba(
-                sent, split=False, reduce=False, 
+                sent, split=False, reduce=False,
                 max_sent_len=50, remove_short=False)
             return merge_chinese(' '.join(sent[0]))
 
@@ -438,7 +438,7 @@ class QADataset2(Dataset):
             for i, d in enumerate(data_list):
                 idx = d['id']
                 sent = normalize_sent_with_jieba(
-                    d['text'], reduce=False, max_sent_len=50)
+                    d['text'], reduce=False, max_sent_len=70)
                 sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 stem = normalize(d['question']['stem'])
@@ -539,15 +539,43 @@ class QADataset3(QADataset2):
     '''
 
     def __init__(self, path, split='train', val_r=10,
-                 rand_remove=False, rand_swap=False, eda=False):
+                 rand_remove=False, rand_swap=False, eda=False,
+                 doc_splits=1):
         super().__init__(path, split, val_r, rand_remove, rand_swap, eda)
+
+        self.doc_splits = doc_splits
+        if self.doc_splits > 1:
+            max_sub_doc_len = 400
+            max_overlap_len = 200
+            print('Splitting documents into {} chunks (chunk max chars = {} , chunks overlap chars = {})'
+                  .format(doc_splits, max_sub_doc_len, max_overlap_len))
+            split_data = []
+            for d in self.data:
+                sub_docs = []
+                stack = []
+                curr_len = 0
+                for s in d['doc']:
+                    if curr_len + len(s) > max_sub_doc_len:
+                        sub_docs.append(' '.join(stack))
+                        if len(sub_docs) >= doc_splits:
+                            break
+                        while len(stack) > 0 and curr_len >= max_overlap_len:
+                            curr_len -= len(stack[0])
+                            stack = stack[1:]
+                    stack.append(s)
+                    curr_len += len(s)
+                if len(sub_docs) < doc_splits:
+                    sub_docs.append(' '.join(stack))
+                d['doc_n_chunks'] = len(sub_docs)
+                if len(sub_docs) < doc_splits:
+                    sub_docs += [''] * (doc_splits - len(sub_docs))
+                d['doc_split'] = sub_docs
 
     def __getitem__(self, index):
         # 1. get doc
         sents = self.data[index]['doc']
         if self.eda:
             sents = [EDA(s) for s in sents]
-        doc = (' '.join(sents))[-450:]
 
         # 2. get stem and choices for qa
         stem = self.data[index]['stem']
@@ -555,17 +583,29 @@ class QADataset3(QADataset2):
             stem = EDA(stem)
 
         # 3. collect input
-        seq = ['{}[SEP]{}[SEP]{}'.format(doc, stem, c)
-               for c in self.data[index]['choices']]
+        if self.doc_splits == 1:
+            seq = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
+                   for c in self.data[index]['choices']]
+        else:
+            seq = []
+            for s in sents:
+                chunk = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
+                         for c in self.data[index]['choices']]
+                seq += chunk
+            # seq: list of length 3 * C
         seq = [s if len(s) <= 518 else s[-518:] for s in seq]
 
         # 4. tokenize
         item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
-                truncation="longest_first", max_length=512)
+                              truncation="longest_first", max_length=512)
 
         # 5. get labels
         if self.split in ['train', 'val']:
             item['labels'] = torch.tensor(self.data[index]['answer'])
+
+        # 6. add number of chunks of the document
+        if self.doc_splits > 1:
+            item['n_chunks'] = torch.tensor(self.data[index]['doc_n_chunks'])
 
         return item
 
@@ -582,9 +622,32 @@ if __name__ == '__main__':
     #     'data/Train_qa_ans.json', 'train')
     # print(qa_dataset[0])
 
-    mtl_dataset = MultiTaskDataset(
-        '../data/Train_risk_classification_ans.csv',
-        '../data/Train_qa_ans.json',
-        'train'
-    )
-    print(mtl_dataset[0])
+    # mtl_dataset = MultiTaskDataset(
+    #     '../data/Train_risk_classification_ans.csv',
+    #     '../data/Train_qa_ans.json',
+    #     'train'
+    # )
+    # print(mtl_dataset[0])
+
+    qa_dataset = QADataset3(
+        '../data/train_qa_tr-dv.json', 'train', doc_splits=8)
+    print(qa_dataset.data[0]['doc_split'])
+    print(qa_dataset[3])
+    doc_lens = [len(' '.join(d['doc'])) for d in qa_dataset.data]
+    doc_lens = np.array(doc_lens)
+    print('Doc lengths : AVG = {:.1f} , MED = {} , MIN = {:.1f} , MAX = {:.1f}'
+          .format(doc_lens.mean(), np.median(doc_lens), doc_lens.min(), doc_lens.max()))
+
+    q_lens = [len(d['stem']) for d in qa_dataset.data]
+    q_lens = np.array(q_lens)
+    print('Q lengths : AVG = {:.1f} , MED = {} , MIN = {:.1f} , MAX = {:.1f}'
+          .format(q_lens.mean(), np.median(q_lens), q_lens.min(), q_lens.max()))
+
+    c_lens = [max([len(c) for c in d['choices']]) for d in qa_dataset.data]
+    c_lens = np.array(c_lens)
+    print('A lengths : AVG = {:.1f} , MED = {} , MIN = {:.1f} , MAX = {:.1f}'
+          .format(c_lens.mean(), np.median(c_lens), c_lens.min(), c_lens.max()))
+
+    # Doc lengths : AVG = 1499.7 , MED = 1481.0 , MIN = 351.0 , MAX = 4137.0
+    # Q lengths : AVG = 14.5 , MED = 14.0 , MIN = 7.0 , MAX = 29.0
+    # A lengths : AVG = 8.5 , MED = 7.0 , MIN = 2.0 , MAX = 36.0

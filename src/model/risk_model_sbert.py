@@ -7,9 +7,6 @@ from torch import nn
 import math
 from model.encoder import Encoder
 
-# Mean Pooling - Take attention mask into account for correct averaging
-# Ref: https://www.sbert.net/examples/applications/computing-embeddings/README.html
-
 
 def mean_pooling(model_output, attention_mask):
     '''
@@ -92,7 +89,7 @@ class SBertRiskPredictor(nn.Module):
             ['transformer', 'gru', 'lstm'], post_encoder_type
         if post_encoder_type == 'transformer':
             self.post_encoder = nn.TransformerEncoder(
-                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
+                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 3)
         elif post_encoder_type == 'gru':
             self.post_encoder = nn.GRU(
                 312, 156, 2, dropout=0.1,
