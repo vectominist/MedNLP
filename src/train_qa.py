@@ -34,7 +34,7 @@ def qa_eval_metrics(eval_pred):
 
 def train(config: dict, val: bool = True):
     print('Fine-tuning for the Risk Evalutation Task')
-    model = SBertQA(config['model']['pretrained'])
+    model = SBertQA(config['model']['pretrained'], config['model']['hidden_dim'])
     tr_set = QADataset3(
         config['data']['train_path'], 'train',
         val_r=10000,

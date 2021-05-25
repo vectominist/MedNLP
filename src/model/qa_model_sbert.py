@@ -13,15 +13,15 @@ class SBertQA(nn.Module):
         This is a VERY SIMPLE implementation.
     '''
 
-    def __init__(self, model_name):
+    def __init__(self, model_name, hidden_dim):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
-        self.attention = Encoder(312, 0.1)
+        self.attention = Encoder(hidden_dim, 0.1)
         # self.post_encoder = nn.TransformerEncoder(
         #     nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
         self.pred_head = nn.Sequential(
             nn.Dropout(0.1),
-            nn.Linear(312, 312),
+            nn.Linear(hidden_dim, 312),
             nn.Tanh(),
             nn.Dropout(0.1),
             nn.Linear(312, 1)
@@ -34,7 +34,6 @@ class SBertQA(nn.Module):
                 B x 3C x L -> split into sub-documents
         '''
         # input size = B x 3 x Length
-
         B, C, L = inputs['input_ids'].shape
         for key, val in inputs.items():
             if val.dim() == 3 and val.shape[0] == B and \
@@ -42,23 +41,25 @@ class SBertQA(nn.Module):
                 inputs[key] = val.reshape(B * C, L)
         if C != 3:
             n_chunks = inputs.pop('n_chunks')
+            mask = self.create_mask(n_chunks, C // 3)
+        else:
+            mask = inputs.pop('attention_mask')
 
         labels = inputs.pop('labels') if ('labels' in inputs) else None
 
         out = self.encoder(**inputs)
-        out = out[0].reshape(B, C, L, 312)[:, :, 0, :]  # B x C x 312
+        out = out[0].reshape(B, C, L, -1)[:, :, 0, :]  # B x C x 312
 
-        mask = self.create_mask(n_chunks, C // 3)
         out = (out
-               .reshape(B, C // 3, 3, 312)
+               .reshape(B, C // 3, 3, -1)
                .transpose(1, 2)
-               .reshape(B * 3, C // 3, 312))
+               .reshape(B * 3, C // 3, -1))
         # FIXME: adding transformer does not improve much
         # out = self.post_encoder(
         #     self.attention.pe(out).transpose(0, 1),
         #     src_key_padding_mask=mask.squeeze(2)).transpose(0, 1)
         h_repr = self.attention(out, mask)  # 3B x D
-        h_repr = h_repr.reshape(B, 3, 312)
+        h_repr = h_repr.reshape(B, 3, -1)
         prediction = self.pred_head(h_repr).squeeze(2)
 
         outputs = {'logits': prediction}
