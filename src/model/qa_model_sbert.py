@@ -28,9 +28,9 @@ class SBertQA(nn.Module):
         #     nn.Dropout(0.1),
         #     nn.Linear(312, 1)
         # )
-        for name, param in self.encoder.named_parameters():
-            if 'classifier' not in name: # classifier layer
-                param.requires_grad = False
+        # for name, param in self.encoder.named_parameters():
+        #     if 'classifier' not in name: # classifier layer
+        #         param.requires_grad = False
 
     def forward(self, **inputs):
         '''

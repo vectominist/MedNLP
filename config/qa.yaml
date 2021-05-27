@@ -8,21 +8,21 @@ data:
   doc_splits: 10
 
 model:
-  pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
-  # pretrained: ckiplab/albert-tiny-chinese
-  hidden_dim: 768
-  # hidden_dim: 312
+  # pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
+  pretrained: ckiplab/albert-tiny-chinese
+  # hidden_dim: 768
+  hidden_dim: 312
 
 train_args:
   output_dir: runs/qa_pred
 
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 2
   per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 16
+  gradient_accumulation_steps: 8
 
   learning_rate: 0.00005
   weight_decay: 0.000001
-  num_train_epochs: 200
+  num_train_epochs: 400
   lr_scheduler_type: linear
   warmup_ratio: 0.1
 
