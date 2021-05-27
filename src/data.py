@@ -21,7 +21,7 @@ from opencc import OpenCC
 
 cc = OpenCC('s2t')  # simplified to traditional
 
-tokenizer = AutoTokenizer.from_pretrained("bert-base-chinese")
+tokenizer_qa = AutoTokenizer.from_pretrained("bert-base-chinese")
 tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
 
 choice2int = {
@@ -586,22 +586,38 @@ class QADataset3(QADataset2):
             stem = EDA(stem)
 
         # 3. collect input
+        # if self.doc_splits == 1:
+        #     seq = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
+        #            for c in self.data[index]['choices']]
+        # else:
+        #     seq = []
+        #     for s in sents:
+        #         chunk = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
+        #                  for c in self.data[index]['choices']]
+        #         seq += chunk
+            # seq: list of length 3 * C
+        # seq = [s if len(s) <= 518 else s[-518:] for s in seq]
+
+        # 4. tokenize
+        # item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
+                              # truncation="longest_first", max_length=512)
         if self.doc_splits == 1:
-            seq = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
-                   for c in self.data[index]['choices']]
+            seq = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
         else:
             seq = []
             for s in sents:
-                chunk = ['{}[SEP]{}[SEP]{}'.format(' '.join(sents), stem, c)
-                         for c in self.data[index]['choices']]
+                chunk = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
                 seq += chunk
-            # seq: list of length 3 * C
-        seq = [s if len(s) <= 518 else s[-518:] for s in seq]
+        chs = self.data[index]['choices']
+        stem = [stem] * 3
 
-        # 4. tokenize
-        item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
-                              truncation="longest_first", max_length=512)
-
+        item = dict()
+        item['seq'] = tokenizer_qa(seq, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=512).input_ids
+        item['stem'] = tokenizer_qa(stem, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=30).input_ids
+        item['chs'] = tokenizer_qa(chs, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=30).input_ids
         # 5. get labels
         if self.split in ['train', 'val']:
             item['label'] = self.data[index]['answer']
@@ -609,6 +625,8 @@ class QADataset3(QADataset2):
         # 6. add number of chunks of the document
         if self.doc_splits > 1:
             item['n_chunks'] = torch.tensor(self.data[index]['doc_n_chunks'])
+        else:
+            item['n_chunks'] = torch.tensor([len(self.data[index])])
 
         return item
 

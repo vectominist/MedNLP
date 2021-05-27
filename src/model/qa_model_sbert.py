@@ -5,7 +5,7 @@ from transformers import AutoModel
 import torch
 from torch import nn
 from model.encoder import Encoder
-
+from torch_multi_head_attention import MultiHeadAttention
 
 class SBertQA(nn.Module):
     '''
@@ -16,16 +16,21 @@ class SBertQA(nn.Module):
     def __init__(self, model_name, hidden_dim):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
-        self.attention = Encoder(hidden_dim, 0.1)
+        # self.attention = Encoder(hidden_dim, 0.1)
+        self.attention = MultiHeadAttention(hidden_dim, 1)
+        self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         # self.post_encoder = nn.TransformerEncoder(
         #     nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
-        self.pred_head = nn.Sequential(
-            nn.Dropout(0.1),
-            nn.Linear(hidden_dim, 312),
-            nn.Tanh(),
-            nn.Dropout(0.1),
-            nn.Linear(312, 1)
-        )
+        # self.pred_head = nn.Sequential(
+        #     nn.Dropout(0.1),
+        #     nn.Linear(hidden_dim, 312),
+        #     nn.Tanh(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(312, 1)
+        # )
+        for name, param in self.encoder.named_parameters():
+            if 'classifier' not in name: # classifier layer
+                param.requires_grad = False
 
     def forward(self, **inputs):
         '''
@@ -34,33 +39,45 @@ class SBertQA(nn.Module):
                 B x 3C x L -> split into sub-documents
         '''
         # input size = B x 3 x Length
-        B, C, L = inputs['input_ids'].shape
-        for key, val in inputs.items():
-            if val.dim() == 3 and val.shape[0] == B and \
-                    val.shape[1] == C and val.shape[2] == L:
-                inputs[key] = val.reshape(B * C, L)
-        if C != 3:
-            n_chunks = inputs.pop('n_chunks')
-            mask = self.create_mask(n_chunks, C // 3)
-        else:
-            mask = inputs.pop('attention_mask')
+        shape = dict()
+        for k in ['seq', 'chs', 'stem']:
+            B, C, L = inputs[k].shape
+            shape[k] = (B, C, L)
+        # for key, val in inputs.items():
+        #     if val.dim() == 3 and val.shape[0] == B and \
+        #             val.shape[1] == C:
+        #         inputs[key] = val.reshape(B * C, L)
+        for k in ['seq', 'chs', 'stem']:
+            B1, C1, _ = shape[k]
+            inputs[k] = inputs[k].reshape(B1 * C1, -1)
+        # n_chunks = inputs.pop('n_chunks')
+        # mask = self.create_mask(n_chunks, shape['seq'][1] // 3)
 
         labels = inputs.pop('labels') if ('labels' in inputs) else None
 
-        out = self.encoder(**inputs)
-        out = out[0].reshape(B, C, L, -1)[:, :, 0, :]  # B x C x 312
+        for k in ['seq', 'chs', 'stem']:
+            B1, C1, L1 = shape[k]
+            out = self.encoder(inputs[k])
+            out = out[0].reshape(B1, C1, L1, -1)  # B x C x 312
+            inputs[k] = out
 
-        out = (out
-               .reshape(B, C // 3, 3, -1)
+        seq = (inputs['seq'][:,:,0,:]
+               .reshape(shape['seq'][0], shape['seq'][1] // 3, 3, -1)
                .transpose(1, 2)
-               .reshape(B * 3, C // 3, -1))
+               .reshape(shape['seq'][0] * 3, shape['seq'][1] // 3,-1)
+               )
+        chs = inputs['chs'][:,:,0,:].reshape(shape['chs'][0] * 3, -1)
+        stem = inputs['stem'][:,:,0,:].reshape(shape['stem'][0] * 3, 1, -1)
+        
+        h_repr = self.attention(stem ,seq, seq).squeeze(1)
+        prediction = self.cos(h_repr, chs).reshape(shape['chs'][0], 3)
         # FIXME: adding transformer does not improve much
         # out = self.post_encoder(
         #     self.attention.pe(out).transpose(0, 1),
         #     src_key_padding_mask=mask.squeeze(2)).transpose(0, 1)
-        h_repr = self.attention(out, mask)  # 3B x D
-        h_repr = h_repr.reshape(B, 3, -1)
-        prediction = self.pred_head(h_repr).squeeze(2)
+        # h_repr = self.attention(seq, mask)  # 3B x D
+        # h_repr = h_repr.reshape(B, 3, -1)
+        # prediction = self.pred_head(h_repr).squeeze(2)
 
         outputs = {'logits': prediction}
         if labels is not None:
