@@ -22,11 +22,11 @@ class SBertQA(nn.Module):
         # self.post_encoder = nn.TransformerEncoder(
         #     nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
         # self.pred_head = nn.Sequential(
-        #     nn.Dropout(0.1),
-        #     nn.Linear(hidden_dim, 312),
-        #     nn.Tanh(),
-        #     nn.Dropout(0.1),
-        #     nn.Linear(312, 1)
+            # nn.Dropout(0.3),
+            # nn.Linear(hidden_dim * 2, 312),
+            # nn.Tanh(),
+            # nn.Dropout(0.3),
+            # nn.Linear(hidden_dim * 2, 1)
         # )
         # for name, param in self.encoder.named_parameters():
         #     if 'classifier' not in name: # classifier layer
@@ -39,17 +39,19 @@ class SBertQA(nn.Module):
                 B x 3C x L -> split into sub-documents
         '''
         # input size = B x 3 x Length
-        shape = dict()
-        for k in ['seq', 'chs', 'stem']:
-            B, C, L = inputs[k].shape
-            shape[k] = (B, C, L)
-        # for key, val in inputs.items():
-        #     if val.dim() == 3 and val.shape[0] == B and \
-        #             val.shape[1] == C:
-        #         inputs[key] = val.reshape(B * C, L)
-        for k in ['seq', 'chs', 'stem']:
-            B1, C1, _ = shape[k]
-            inputs[k] = inputs[k].reshape(B1 * C1, -1)
+        inputs['seq'] = {i[4:]:j for i,j in inputs.items() if i.startswith('seq_')}
+        inputs['stem'] = {i[5:]:j for i,j in inputs.items() if i.startswith('stem_')}
+        inputs['chs'] = {i[4:]:j for i,j in inputs.items() if i.startswith('chs_')}
+        shape = {'seq': (*inputs['seq']["input_ids"].shape,),
+                'stem': (*inputs['stem']["input_ids"].shape,),
+                'chs': (*inputs['chs']["input_ids"].shape,)}
+
+        for k in ['seq', 'stem', 'chs']:
+            for key, val in inputs[k].items():
+                B, C, L = shape[k]
+                if val.dim() == 3 and val.shape[0] == B and \
+                        val.shape[1] == C:
+                    inputs[k][key] = val.reshape(B * C, L)
         # n_chunks = inputs.pop('n_chunks')
         # mask = self.create_mask(n_chunks, shape['seq'][1] // 3)
 
@@ -57,7 +59,7 @@ class SBertQA(nn.Module):
 
         for k in ['seq', 'chs', 'stem']:
             B1, C1, L1 = shape[k]
-            out = self.encoder(inputs[k])
+            out = self.encoder(**inputs[k])
             out = out[0].reshape(B1, C1, L1, -1)  # B x C x 312
             inputs[k] = out
 
@@ -70,7 +72,10 @@ class SBertQA(nn.Module):
         stem = inputs['stem'][:,:,0,:].reshape(shape['stem'][0] * 3, 1, -1)
         
         h_repr = self.attention(stem ,seq, seq).squeeze(1)
+        out = torch.cat([h_repr, chs], dim=1)
         prediction = self.cos(h_repr, chs).reshape(shape['chs'][0], 3)
+        # prediction = self.pred_head(out).reshape(shape['chs'][0], 3)
+
         # FIXME: adding transformer does not improve much
         # out = self.post_encoder(
         #     self.attention.pe(out).transpose(0, 1),

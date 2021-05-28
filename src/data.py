@@ -18,6 +18,7 @@ from augmentation import (
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
 from opencc import OpenCC
+import numpy as np
 
 cc = OpenCC('s2t')  # simplified to traditional
 
@@ -542,7 +543,6 @@ class QADataset3(QADataset2):
                  rand_remove=False, rand_swap=False, eda=False,
                  doc_splits=1):
         super().__init__(path, split, val_r, rand_remove, rand_swap, eda)
-
         self.doc_splits = doc_splits
         if self.doc_splits > 1:
             max_sub_doc_len = 400
@@ -601,7 +601,11 @@ class QADataset3(QADataset2):
         # 4. tokenize
         # item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
                               # truncation="longest_first", max_length=512)
+        if self.split == 'train':
+            sents = np.array(sents)
+            np.random.shuffle(sents)
         if self.doc_splits == 1:
+
             seq = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
         else:
             seq = []
@@ -611,13 +615,21 @@ class QADataset3(QADataset2):
         chs = self.data[index]['choices']
         stem = [stem] * 3
 
+        seq = tokenizer_qa(seq, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=512)
+        stem = tokenizer_qa(stem, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=30)
+        chs = tokenizer_qa(chs, return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=30)
+
         item = dict()
-        item['seq'] = tokenizer_qa(seq, return_tensors="pt", padding="max_length",
-                          truncation="longest_first", max_length=512).input_ids
-        item['stem'] = tokenizer_qa(stem, return_tensors="pt", padding="max_length",
-                          truncation="longest_first", max_length=30).input_ids
-        item['chs'] = tokenizer_qa(chs, return_tensors="pt", padding="max_length",
-                          truncation="longest_first", max_length=30).input_ids
+        for key,val in seq.items():
+            item["seq_%s" % key] = val
+        for key,val in stem.items():
+            item["stem_%s" % key] = val
+        for key,val in chs.items():
+            item["chs_%s" % key] = val
+        
         # 5. get labels
         if self.split in ['train', 'val']:
             item['label'] = self.data[index]['answer']
