@@ -22,7 +22,7 @@ import numpy as np
 
 cc = OpenCC('s2t')  # simplified to traditional
 
-tokenizer_qa = AutoTokenizer.from_pretrained("bert-base-chinese")
+tokenizer_qa = BertTokenizerFast.from_pretrained("ckiplab/albert-tiny-chinese")
 tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
 
 choice2int = {
@@ -545,8 +545,8 @@ class QADataset3(QADataset2):
         super().__init__(path, split, val_r, rand_remove, rand_swap, eda)
         self.doc_splits = doc_splits
         if self.doc_splits > 1:
-            max_sub_doc_len = 400
-            max_overlap_len = 200
+            max_sub_doc_len = 512
+            max_overlap_len = 256
             print('Splitting documents into {} chunks (chunk max chars = {} , chunks overlap chars = {})'
                   .format(doc_splits, max_sub_doc_len, max_overlap_len))
             split_data = []
@@ -601,11 +601,7 @@ class QADataset3(QADataset2):
         # 4. tokenize
         # item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
                               # truncation="longest_first", max_length=512)
-        if self.split == 'train':
-            sents = np.array(sents)
-            np.random.shuffle(sents)
         if self.doc_splits == 1:
-
             seq = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
         else:
             seq = []
@@ -617,6 +613,10 @@ class QADataset3(QADataset2):
 
         seq = tokenizer_qa(seq, return_tensors="pt", padding="max_length",
                           truncation="longest_first", max_length=512)
+        if self.rand_swap:
+            seq = sentence_random_swap(seq)
+        if self.rand_remove:
+            seq = sentence_random_removal(seq)
         stem = tokenizer_qa(stem, return_tensors="pt", padding="max_length",
                           truncation="longest_first", max_length=30)
         chs = tokenizer_qa(chs, return_tensors="pt", padding="max_length",

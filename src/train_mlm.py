@@ -17,7 +17,7 @@ from data import MLMDataset, tokenizer_risk
 
 def train(config: dict):
     print('Fine-tuning Bert with Medical Dialogues (Masked LM)')
-    model = AutoModelForMaskedLM.from_pretrained('ckiplab/albert-tiny-chinese')
+    model = AutoModelForMaskedLM.from_pretrained(config['model']['pretrained_model'])
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer_risk, mlm=True, mlm_probability=0.15)
 

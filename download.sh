@@ -17,6 +17,12 @@ wget ${wget_opts} -O data/Develop_risk_classification.csv https://aidea-web.tw/f
 
 cp material/Develop_QA_human.json data
 
+medlm=data/med_lm.txt
+echo -n "" > $medlm
+for file in Train_risk_classification_ans.csv Develop_risk_classification.csv; do
+	cut -d ',' -f 3 data/$file | tail -n +2 >> $medlm
+done
+
 [ ! -d data/Baseline ] && \
 wget ${wget_opts} -O data/Baseline.zip https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1617075668876673_train_test_dataset_1___Baseline.zip && \
 unzip -o data/Baseline.zip -d data/ && \

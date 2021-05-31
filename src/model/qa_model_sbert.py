@@ -19,6 +19,7 @@ class SBertQA(nn.Module):
         # self.attention = Encoder(hidden_dim, 0.1)
         self.attention = MultiHeadAttention(hidden_dim, 1)
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        self.chs_mapper = nn.Linear(hidden_dim, hidden_dim)
         # self.post_encoder = nn.TransformerEncoder(
         #     nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
         # self.pred_head = nn.Sequential(
@@ -26,11 +27,11 @@ class SBertQA(nn.Module):
             # nn.Linear(hidden_dim * 2, 312),
             # nn.Tanh(),
             # nn.Dropout(0.3),
-            # nn.Linear(hidden_dim * 2, 1)
+            # nn.Linear(312, 1)
         # )
-        # for name, param in self.encoder.named_parameters():
-        #     if 'classifier' not in name: # classifier layer
-        #         param.requires_grad = False
+        for name, param in self.encoder.named_parameters():
+            if 'classifier' not in name: # classifier layer
+                param.requires_grad = False
 
     def forward(self, **inputs):
         '''
@@ -63,17 +64,19 @@ class SBertQA(nn.Module):
             out = out[0].reshape(B1, C1, L1, -1)  # B x C x 312
             inputs[k] = out
 
-        seq = (inputs['seq'][:,:,0,:]
-               .reshape(shape['seq'][0], shape['seq'][1] // 3, 3, -1)
-               .transpose(1, 2)
-               .reshape(shape['seq'][0] * 3, shape['seq'][1] // 3,-1)
-               )
+        seq = (inputs['seq']
+               .reshape(shape['seq'][0], shape['seq'][1] // 3, 3, shape['seq'][2], -1)
+               .transpose(1, 2) #(B,3,C,L,E)
+               .reshape(shape['seq'][0] * 3, shape['seq'][1] // 3 * shape['seq'][2],-1)
+               ) #(3B, C*L, E)
         chs = inputs['chs'][:,:,0,:].reshape(shape['chs'][0] * 3, -1)
+        chs = self.chs_mapper(chs)
         stem = inputs['stem'][:,:,0,:].reshape(shape['stem'][0] * 3, 1, -1)
         
         h_repr = self.attention(stem ,seq, seq).squeeze(1)
-        out = torch.cat([h_repr, chs], dim=1)
         prediction = self.cos(h_repr, chs).reshape(shape['chs'][0], 3)
+        
+        # out = torch.cat([h_repr, chs], dim=1)
         # prediction = self.pred_head(out).reshape(shape['chs'][0], 3)
 
         # FIXME: adding transformer does not improve much
@@ -86,9 +89,28 @@ class SBertQA(nn.Module):
 
         outputs = {'logits': prediction}
         if labels is not None:
-            loss = nn.CrossEntropyLoss()(prediction, labels)
-            outputs['loss'] = loss
             outputs['labels'] = labels
+
+            # loss = nn.CrossEntropyLoss()(prediction, labels)
+            
+            # labels_one_hot = torch.zeros((labels.shape[0], 3)).to(labels.device)
+            # labels_one_hot[:,labels] = 1
+            # loss = nn.BCELoss()(prediction, labels_one_hot)
+
+            correct_prediction = prediction.gather(1, labels.view(-1,1)).squeeze(1)
+            # labels = torch.ones_like(labels, dtype=torch.float32)
+            # loss = nn.BCELoss()(correct_prediction, labels)
+            loss = torch.mean(1 - correct_prediction)
+            
+            chs_ = chs / chs.norm(dim=1)[:,None]
+            chs_ = chs_.reshape(shape['chs'][0],3,-1)
+            sim = torch.matmul(chs_,chs_.transpose(1, 2))
+            x = 1 - torch.eye(3)
+            x = x.reshape((1, 3, 3))
+            eye = x.repeat(shape['chs'][0], 1, 1).to(sim.device)
+            loss2 = (torch.nn.ReLU()(eye * sim - 0.5)).mean()
+            
+            outputs['loss'] = loss + loss2 * 2
 
         # prediction = self.pred_head(out).squeeze(2)  # B x C
 
