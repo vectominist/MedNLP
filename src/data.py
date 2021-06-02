@@ -602,11 +602,11 @@ class QADataset3(QADataset2):
         # item = tokenizer_risk(seq, return_tensors="pt", padding="max_length",
                               # truncation="longest_first", max_length=512)
         if self.doc_splits == 1:
-            seq = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
+            seq = [' '.join(sents) for c in self.data[index]['choices']]
         else:
             seq = []
             for s in sents:
-                chunk = ['[SEP]'.join(sents) for c in self.data[index]['choices']]
+                chunk = [' '.join(sents) for c in self.data[index]['choices']]
                 seq += chunk
         chs = self.data[index]['choices']
         stem = [stem] * 3
