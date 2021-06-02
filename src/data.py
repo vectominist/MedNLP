@@ -606,7 +606,7 @@ class QADataset3(QADataset2):
         else:
             seq = []
             for s in sents:
-                chunk = [' '.join(sents) for c in self.data[index]['choices']]
+                chunk = [' '.join(s) for c in self.data[index]['choices']]
                 seq += chunk
         chs = self.data[index]['choices']
         stem = [stem] * 3
