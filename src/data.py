@@ -609,24 +609,21 @@ class QADataset3(QADataset2):
                 chunk = [' '.join(s) for c in self.data[index]['choices']]
                 seq += chunk
         chs = self.data[index]['choices']
-        stem = [stem] * 3
+        
 
-        seq = tokenizer_qa(seq, return_tensors="pt", padding="max_length",
+        seq = tokenizer_qa([stem] * len(seq), seq, add_special_tokens=True, return_tensors="pt", padding="max_length",
                           truncation="longest_first", max_length=512)
         if self.rand_swap:
             seq = sentence_random_swap(seq)
         if self.rand_remove:
             seq = sentence_random_removal(seq)
-        stem = tokenizer_qa(stem, return_tensors="pt", padding="max_length",
-                          truncation="longest_first", max_length=30)
-        chs = tokenizer_qa(chs, return_tensors="pt", padding="max_length",
+
+        chs = tokenizer_qa([stem] * len(chs), chs, add_special_tokens=True, return_tensors="pt", padding="max_length",
                           truncation="longest_first", max_length=30)
 
         item = dict()
         for key,val in seq.items():
             item["seq_%s" % key] = val
-        for key,val in stem.items():
-            item["stem_%s" % key] = val
         for key,val in chs.items():
             item["chs_%s" % key] = val
         

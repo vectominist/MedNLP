@@ -8,12 +8,13 @@ data:
   doc_splits: 05
 
 model:
-  pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
-  # pretrained: ckiplab/albert-tiny-chinese
+  # pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
+  pretrained: ckiplab/albert-tiny-chinese
   # pretrained: runs/med_mlm/checkpoint-446
   # pretrained: bert-base-chinese
-  hidden_dim: 768
-  # hidden_dim: 312
+  # hidden_dim: 768
+  # pretrained: wptoux/albert-chinese-large-qa
+  hidden_dim: 312
 
 train_args:
   output_dir: runs/qa_pred
