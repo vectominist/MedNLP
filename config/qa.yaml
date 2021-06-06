@@ -1,40 +1,5 @@
 data:
   train_path: data/Train_qa_ans.json
-  val_path: data/Develop_QA_human.json
+  test_paths: ["data/Develop_QA_human.json"]
   pred_paths: ['output/decision.csv']
-  rand_remove: true
-  rand_swap: true
-  eda: true
-  doc_splits: 8
 
-model:
-  # pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
-  pretrained: ckiplab/albert-tiny-chinese
-  # pretrained: runs/med_mlm/checkpoint-446
-  # pretrained: bert-base-chinese
-  # hidden_dim: 768
-  # pretrained: wptoux/albert-chinese-large-qa
-  hidden_dim: 312
-
-train_args:
-  output_dir: runs/qa_pred
-
-  per_device_train_batch_size: 1
-  per_device_eval_batch_size: 8
-  gradient_accumulation_steps: 1  
-
-  learning_rate: 0.000005
-  weight_decay: 0.000001
-  num_train_epochs: 100
-  lr_scheduler_type: linear
-  warmup_ratio: 0.1
-
-  save_steps: 1000
-  save_strategy: epoch
-  evaluation_strategy: epoch
-  load_best_model_at_end: true
-  seed: 7122
-  report_to: none
-  dataloader_num_workers: 0
-  metric_for_best_model: eval_loss
-  logging_steps: 139

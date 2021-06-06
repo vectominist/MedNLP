@@ -41,6 +41,59 @@ def crop_doc(sents, max_doc_len=170):
     else:
         return sents[-max_doc_len:]
 
+class QADatasetRuleBase(Dataset):
+    def __init__(self, path):
+        self.path = path
+
+        def normalize(sent: str) -> str:
+            # Helper function for normalization
+            sent = normalize_sent_with_jieba(
+                sent, split=False, reduce=False,
+                max_sent_len=50, remove_short=False)
+            return merge_chinese(' '.join(sent[0]))
+
+        # Read QA data
+        with open(path, 'r') as fp:
+            data_list = json.load(fp)
+            data = []
+            for i, d in enumerate(data_list):
+                idx = d['id']
+                sent = normalize_sent_with_jieba(
+                    d['text'], reduce=False, max_sent_len=70)
+                # sent = crop_doc(sent, max_doc_len)
+                sent = [merge_chinese(' '.join(s)) for s in sent]
+                stem = normalize(d['question']['stem'])
+                choices = [normalize(c['text'])
+                           for c in d['question']['choices']]
+                if 'answer' in d.keys():
+                    d['answer'] = d['answer'].strip()
+                    if d['answer'] not in choice2int.keys():
+                        answer = [k for k in range(3)
+                                  if d['question']['choices'][k]['text'] == d['answer']][0]
+                    else:
+                        answer = choice2int[d['answer']]
+                else:
+                    answer = None
+                data.append(
+                    {
+                        'id': idx,
+                        'article_id': d['article_id'],
+                        'doc': sent,
+                        'stem': stem,
+                        'choices': choices,
+                        'answer': answer
+                    }
+                )
+
+        self.data = data
+
+        print('Found {} samples of QA'.format(len(self.data)))
+    def __getitem__(self, index):
+        return self.data[index]
+    def __len__(self):
+        return len(self.data)
+    def get_ids(self):
+        return [d['id'] for d in self.data]
 
 class ClassificationDataset(Dataset):
     '''
