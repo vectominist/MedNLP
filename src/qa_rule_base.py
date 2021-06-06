@@ -36,6 +36,9 @@ def eval(config: dict):
         # tt_set = QADatasetRuleBase(config['data']['test_paths'][i])
         tt_set = QADatasetRuleBase(config['data']['train_path'])
         answers = model.predict(tt_set)
+        if 'answer' in tt_set[0]:
+            label = np.array([i['answer'] for i in tt_set])
+            print("Accuracy: %s" % (label == answers).mean())
 
         os.makedirs(os.path.split(config['data']['pred_paths'][i])[0], exist_ok=True)
         with open(config['data']['pred_paths'][i], 'w') as fp:
