@@ -5,7 +5,7 @@ data:
   rand_remove: true
   rand_swap: true
   eda: true
-  doc_splits: 05
+  doc_splits: 8
 
 model:
   # pretrained: sentence-transformers/paraphrase-xlm-r-multilingual-v1
@@ -23,13 +23,13 @@ train_args:
   per_device_eval_batch_size: 8
   gradient_accumulation_steps: 1  
 
-  learning_rate: 0.00005
+  learning_rate: 0.000005
   weight_decay: 0.000001
-  num_train_epochs: 20
+  num_train_epochs: 100
   lr_scheduler_type: linear
   warmup_ratio: 0.1
 
-  save_steps: 100
+  save_steps: 1000
   save_strategy: epoch
   evaluation_strategy: epoch
   load_best_model_at_end: true

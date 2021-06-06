@@ -16,8 +16,8 @@ class SBertQA(nn.Module):
     def __init__(self, model_name, hidden_dim):
         super(SBertQA, self).__init__()
         self.encoder = AutoModel.from_pretrained(model_name)
-        self.attention = Encoder(hidden_dim, 0.1)
-        # self.attention = MultiHeadAttention(hidden_dim, 1)
+        # self.attention = Encoder(hidden_dim, 0.1)
+        self.attention = MultiHeadAttention(hidden_dim, 1)
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
         # self.chs_mapper = MultiHeadAttention(hidden_dim, 1)
         # self.post_encoder = nn.TransformerEncoder(
@@ -42,10 +42,12 @@ class SBertQA(nn.Module):
         # input size = B x 3 x Length
         inputs['seq'] = {i[4:]:j for i,j in inputs.items() if i.startswith('seq_')}
         inputs['chs'] = {i[4:]:j for i,j in inputs.items() if i.startswith('chs_')}
+        inputs['stem'] = {i[5:]:j for i,j in inputs.items() if i.startswith('stem_')}
         shape = {'seq': (*inputs['seq']["input_ids"].shape,),
+                'stem': (*inputs['stem']["input_ids"].shape,),
                 'chs': (*inputs['chs']["input_ids"].shape,)}
 
-        for k in ['seq', 'chs']:
+        for k in ['seq', 'chs', 'stem']:
             for key, val in inputs[k].items():
                 B, C, L = shape[k]
                 if val.dim() == 3 and val.shape[0] == B and \
@@ -56,7 +58,7 @@ class SBertQA(nn.Module):
         mask = self.create_mask(n_chunks, shape['seq'][1] // 3)
 
         labels = inputs.pop('labels') if ('labels' in inputs) else None
-        for k in ['seq', 'chs']:
+        for k in ['seq', 'chs','stem']:
             B1, C1, L1 = shape[k]
             out = self.encoder(**inputs[k])
             out = out[0].reshape(B1, C1, L1, -1)  # B x C x 312
@@ -69,11 +71,14 @@ class SBertQA(nn.Module):
                ) #(3B, C, E)
         # chs = inputs['chs'].reshape(shape['chs'][0] * 3, shape['chs'][2], -1)
         chs = inputs['chs'][:,:,0,:].reshape(shape['chs'][0] * 3, -1) # (3B, E)
+        stem = inputs['stem'][:,:,0,:].reshape(shape['stem'][0] * 3, 1, -1) # (3B, 1, E)
         # seq_ = seq / (seq.norm(dim=2) + 1e-10)[:,:,None]
         # chs_ = chs / (chs.norm(dim=1) + 1e-10)[:,None]
         # sim = torch.matmul(seq_, chs_).squeeze(-1) / 2 + 0.5 #(3B,C)
-        seq = self.attention(seq, mask)
-        prediction = self.cos(seq,chs).reshape(shape['chs'][0],3) / 2 + 0.5
+        # seq = self.attention(seq, mask)
+        seq = self.attention(stem, seq, seq).squeeze(1)
+        prediction = self.cos(seq,chs).reshape(shape['chs'][0],3)
+        prediction = - prediction * inputs['inv'] / 2 + 0.5
 
         # prediction = torch.max(sim,dim=1)[0].reshape(shape['chs'][0], 3)
         # chs = self.chs_mapper(chs)
@@ -100,10 +105,11 @@ class SBertQA(nn.Module):
 
             # loss = nn.CrossEntropyLoss()(prediction, labels)
             
-            y = torch.ones((labels.shape[0], 3)).to(labels.device) * -1
-            y[:,labels] = 1
+            y = torch.ones((labels.shape[0], 3)).to(labels.device)
+            y[:,labels] = -1
+            y = y * inputs['inv']
             y = y.view(-1)
-            loss = torch.nn.CosineEmbeddingLoss(margin=0.8)(seq, chs, y)
+            loss = torch.nn.CosineEmbeddingLoss(margin=0.5)(seq, chs, y)
             # loss = nn.BCELoss()(prediction, labels_one_hot)
 
             # correct_prediction = prediction.gather(1, labels.view(-1,1)).squeeze(1)

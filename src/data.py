@@ -17,10 +17,8 @@ from augmentation import (
     EDA)
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
-from opencc import OpenCC
 import numpy as np
 
-cc = OpenCC('s2t')  # simplified to traditional
 
 tokenizer_qa = BertTokenizerFast.from_pretrained("ckiplab/albert-tiny-chinese")
 tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
@@ -30,11 +28,11 @@ choice2int = {
     'Ａ': 0, 'Ｂ': 1, 'Ｃ': 2
 }
 
-
-def tokenize(x, max_length):
-    return tokenizer(
-        x, return_tensors="pt", padding="max_length",
-        truncation="longest_first", max_length=max_length).input_ids
+def is_inv(sent:str):
+    for i in ["錯誤","有誤","不正確","不符合","非","不是","不包括","不包含","沒有"]:
+        if i in sent:
+            return True
+    return False
 
 
 def crop_doc(sents, max_doc_len=170):
@@ -545,8 +543,8 @@ class QADataset3(QADataset2):
         super().__init__(path, split, val_r, rand_remove, rand_swap, eda)
         self.doc_splits = doc_splits
         if self.doc_splits > 1:
-            max_sub_doc_len = 512
-            max_overlap_len = 256
+            max_sub_doc_len = 400
+            max_overlap_len = 200
             print('Splitting documents into {} chunks (chunk max chars = {} , chunks overlap chars = {})'
                   .format(doc_splits, max_sub_doc_len, max_overlap_len))
             split_data = []
@@ -620,15 +618,22 @@ class QADataset3(QADataset2):
 
         chs = tokenizer_qa([stem] * len(chs), chs, add_special_tokens=True, return_tensors="pt", padding="max_length",
                           truncation="longest_first", max_length=30)
+        stem = tokenizer_qa([stem] * len(chs), return_tensors="pt", padding="max_length",
+                          truncation="longest_first", max_length=30)
 
         item = dict()
         for key,val in seq.items():
             item["seq_%s" % key] = val
         for key,val in chs.items():
             item["chs_%s" % key] = val
+        for key,val in stem.items():
+            item["stem_%s" % key] = val
         
         # 5. get labels
         if self.split in ['train', 'val']:
+            item['inv'] = torch.tensor([-1])
+            if is_inv(stem):
+                item['inv'] = torch.tensor([1])
             item['label'] = self.data[index]['answer']
 
         # 6. add number of chunks of the document
