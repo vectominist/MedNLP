@@ -1,5 +1,5 @@
 data:
   train_path: data/Train_qa_ans.json
   test_paths: ["data/Develop_QA_human.json"]
-  pred_paths: ['output/decision.csv']
+  pred_paths: ['output/qa.csv']
 

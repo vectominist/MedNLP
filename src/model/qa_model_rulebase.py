@@ -1,21 +1,44 @@
 import numpy as np
 import tqdm
 import edit_distance
+from scipy.stats import kurtosis
 
 def is_inv(sent:str):
-    for i in ["錯誤","有誤","不正確","不符合","非","不是","不包括","不包含","沒有"]:
+    for i in ["錯誤","有誤","不","非","沒"]:
         if i in sent:
             return True
     return False
 def get_sim(sent:str, doc:list):
     sim = np.array([edit_distance.SequenceMatcher(i, sent).matches() for i in doc], dtype=np.float32)
+
+    _filter = [1,0.5,0.25]
+    sim = np.convolve(sim, _filter, 'full')[:-len(_filter) + 1]
+    
+    inv = [is_inv(i) for i in doc]
+    sim[inv] *= -1
+    if is_inv(sent):
+        sim *= -1
+
     # sim /= len(sent)
     _filter = [1,0.5,0.25]
     sim = np.convolve(sim, _filter, 'full')[:-len(_filter) + 1]
     return sim
 def get_correct(sent:str, doc:list):
     correct = np.array([edit_distance.SequenceMatcher(i, sent).matches() for i in doc], dtype=np.float32)
+
+    _filter = [1,0.5,0.25]
+    correct = np.convolve(correct, _filter, 'full')[:-len(_filter) + 1]
+
+    inv = [is_inv(i) for i in doc]
+    correct[inv] *= -1
+    if is_inv(sent):
+        correct *= -1
+
+    # correct -= correct.mean()
     # correct /= len(sent)
+    _filter = [1,0.5,0.25]
+    correct = np.convolve(correct, _filter, 'full')[:-len(_filter) + 1]
+
     return correct.max()
 
 class RuleBaseQA():
