@@ -59,7 +59,7 @@ class QADatasetRuleBase(Dataset):
             for i, d in enumerate(data_list):
                 idx = d['id']
                 sent = normalize_sent_with_jieba(
-                    d['text'], reduce=False, max_sent_len=70)
+                    d['text'], reduce=False, max_sent_len=np.inf)
                 # sent = crop_doc(sent, max_doc_len)
                 sent = [merge_chinese(' '.join(s)) for s in sent]
                 stem = normalize(d['question']['stem'])
