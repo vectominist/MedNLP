@@ -33,8 +33,8 @@ def eval(config: dict):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
-        # tt_set = QADatasetRuleBase(config['data']['test_paths'][i])
-        tt_set = QADatasetRuleBase(config['data']['train_path'])
+        tt_set = QADatasetRuleBase(config['data']['test_paths'][i])
+        # tt_set = QADatasetRuleBase(config['data']['train_path'])
         answers = model.predict(tt_set)
         if 'answer' in tt_set[0]:
             label = np.array([i['answer'] for i in tt_set])

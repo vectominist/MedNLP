@@ -9,9 +9,14 @@ def is_inv(sent:str):
     return False
 def get_sim(sent:str, doc:list):
     sim = np.array([edit_distance.SequenceMatcher(i, sent).matches() for i in doc], dtype=np.float32)
+    # sim /= len(sent)
     _filter = [1,0.5,0.25]
     sim = np.convolve(sim, _filter, 'full')[:-len(_filter) + 1]
     return sim
+def get_correct(sent:str, doc:list):
+    correct = np.array([edit_distance.SequenceMatcher(i, sent).matches() for i in doc], dtype=np.float32)
+    # correct /= len(sent)
+    return correct.max()
 
 class RuleBaseQA():
     def predict(self, dataset):
@@ -22,7 +27,8 @@ class RuleBaseQA():
                 stem = i['stem']
                 choices = i['choices']
                 if is_inv(stem):
-                    answers.append(1)
+                    correct = [get_correct(i,doc) for i in choices]
+                    answers.append(np.argmin(correct))
                 else:
                     ref_sim = get_sim(stem, doc)
                     sim = [get_sim(i, doc) for i in choices]
