@@ -34,12 +34,13 @@ def eval(config: dict):
             i + 1, config['data']['test_paths'][i]))
 
         tt_set = QADatasetRuleBase(config['data']['test_paths'][i])
-        # tt_set = QADatasetRuleBase(config['data']['train_path'])
         answers = model.predict(tt_set)
-        if 'answer' in tt_set[0]:
+        if tt_set[0]['answer'] is not None:
             label = np.array([i['answer'] for i in tt_set])
             print("Accuracy: %s" % (label == answers).mean())
 
+        if config['data']['pred_paths'][i] == '':
+            continue
         os.makedirs(os.path.split(config['data']['pred_paths'][i])[0], exist_ok=True)
         with open(config['data']['pred_paths'][i], 'w') as fp:
             writer = csv.writer(fp)

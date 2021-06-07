@@ -11,13 +11,13 @@ def is_inv(sent:str):
 def get_sim(sent:str, doc:list):
     sim = np.array([edit_distance.SequenceMatcher(i, sent).matches() for i in doc], dtype=np.float32)
 
-    _filter = [1,0.5,0.25]
-    sim = np.convolve(sim, _filter, 'full')[:-len(_filter) + 1]
+    # _filter = [1,0.5,0.25]
+    # sim = np.convolve(sim, _filter, 'full')[:-len(_filter) + 1]
     
-    inv = [is_inv(i) for i in doc]
-    sim[inv] *= -1
-    if is_inv(sent):
-        sim *= -1
+    # inv = [is_inv(i) for i in doc]
+    # sim[inv] *= -1
+    # if is_inv(sent):
+    #     sim *= -1
 
     # sim /= len(sent)
     _filter = [1,0.5,0.25]
