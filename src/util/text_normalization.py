@@ -38,7 +38,7 @@ def split_sent(sentence: str):
     tmp = sentence[first_role_idx:]
     while tmp:
         res = re.search(
-            r'(護理師[\w*]\s*:|醫師\s*:|民眾\s*:|家屬[\w*]\s*:|個管師\s*:)', tmp)
+            r'(護理師[\w*]\s*:|醫師\s*:|民眾\s*:|家屬[\w*]\s*:|個管師\s*:|，|。|？|！)', tmp)
         if res is None:
             break
 
@@ -75,13 +75,9 @@ def normalize_sent_with_jieba(
     text = text.replace('家屬', '民眾')
     text = text.replace('砲', '炮')
     text = text.replace('爲', '為')
-    text = text.replace('哈哈', '哈')
-    text = text.replace('哈哈', '哈')
-    text = text.replace('哈哈', '哈')
-    text = text.replace('okok', 'ok')
-    text = text.replace('okok', 'ok')
-    text = text.replace('nono', 'no')
-    text = text.replace('nono', 'no')
+    text = re.sub('(哈)+', '哈', text)
+    text = re.sub('(ok)+', 'ok', text)
+    text = re.sub('(no)+', 'no', text)
     text = re.sub(r'\([^)]*\)', '', text)
     if split:
         text = ["".join(i) for i in split_sent(text)]
