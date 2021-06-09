@@ -1,22 +1,57 @@
 MedNLP
 ==============
 
-enviroment
-----------
-- python 3.8
-- torch 1.8
+### Environment
 
-Preprocess
-----------
-- Download pre-trained word embedding to ``word2vec/cc.zh.300.vec``: [fasttext](https://fasttext.cc/docs/en/crawl-vectors.html)
-- Run ``srd/_preprocess.py`` to generate two file. (``data/vocab.json`` and ``data/embeddings.npy``)
-- Put your all dataset in ``data`` folder. (Run ``download.sh``)
+* Python 3.8.5
+* Pytorch 1.8.1
+* Transfomrers 4.6.1
 
-Run
----
-- Training and testing operations of Risk task are in ``src/_risk.py``
-- Training and testing operations of QA task are in ``src/_qa.py``
+```bash
+pip install -r requirement.txt
+```
 
-Model
------
-- Hierarchical Attention Networks (see [paper](https://www.cs.cmu.edu/~./hovy/papers/16HLT-hierarchical-attention-networks.pdf) for more detial)
+### Download Data
+
+```bash
+vim aidea-web.tw_cookies.txt # put log-in cookies.txt here
+./download.sh
+```
+
+### Risk Evaluation
+
+##### Model
+
+See `report.pdf`
+
+##### Train Masked Language Model (MLM)
+
+```bash
+vim config/mlm.yaml # Set train path and pretrained model.
+./trian_mlm.sh
+```
+
+##### Train Risk Model
+
+```bash
+vim config/risk.yaml # Put your pretrained MLM here. Set train path and test path.
+./train_risk.sh
+```
+
+##### Test
+
+```bash
+python src/train_risk.py --config config/risk.yaml --mode test
+```
+
+### Question Answering
+
+##### Model
+
+See `report.pdf`
+
+##### Test
+
+```bash
+./run_qa_rule_base.sh
+```
