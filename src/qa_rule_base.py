@@ -9,7 +9,7 @@ import csv
 import numpy as np
 
 from data import QADatasetRuleBase
-from model.qa_model_rulebase import RuleBaseQA
+from model import RuleBaseQA
 
 label2answer = ['A', 'B', 'C']
 
