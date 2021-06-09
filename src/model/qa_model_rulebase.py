@@ -2,9 +2,11 @@ import numpy as np
 import tqdm
 import edit_distance
 import re
+import multiprocessing as mp
 
 def is_inv(sent:str):
-    return bool(re.search('錯|誤|不|沒|(非(?!常|洲))',sent))
+    exp = '錯|誤|不|沒|(非(?!常|洲))'
+    return bool(re.search(exp,sent)), re.sub(exp, '', sent)
 
 def get_sim(sent:str, doc:list):
     match_sm = [edit_distance.SequenceMatcher(i, sent, action_function=edit_distance.highest_match_action) for i in doc]
@@ -22,10 +24,11 @@ def get_sim(sent:str, doc:list):
     # match_score /= len(sent)
     _filter = [1, 0.5, 0.25]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
+    match_score[-1] += 1e-10
     
     return match_score
 
-def get_correct(sent:str, doc:list):
+def get_sim_with_inv(sent:str, doc:list):
     match_sm = [edit_distance.SequenceMatcher(i, sent, action_function=edit_distance.highest_match_action) for i in doc]
     match_score = np.array([i.matches() for i in match_sm], dtype=np.float32)
     
@@ -46,8 +49,8 @@ def get_correct(sent:str, doc:list):
     _filter = [1, 0.6, 0.36]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
 
-    sent_inv = is_inv(sent)
-    inv = [is_inv(i) ^ sent_inv for i in doc]
+    sent_inv = is_inv(sent)[0]
+    inv = [is_inv(i)[0] ^ sent_inv for i in doc]
     match_score[inv] *= -1
 
     # match_score /= len(sent)
@@ -55,29 +58,35 @@ def get_correct(sent:str, doc:list):
 
     _filter = [1, 0.6, 0.36]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
+    match_score[-1] += 1e-10
 
-    return match_score.max()
+    return match_score
 
 class RuleBaseQA():
     def predict(self, dataset):
-        answers = []
         with tqdm.tqdm(dataset) as prog_bar:
-            for question in prog_bar:
-                doc = question['doc']
-                stem = question['stem']
-                choices = question['choices']
-                
-                stem = re.sub("下列|關於|何者|敘述|民眾",'',stem)
-
-                if is_inv(stem):
-                    correct = [get_correct(i,doc) for i in choices]
-                    answers.append(np.argmin(correct))
-                else:
-                    ref_sim = get_sim(stem, doc)
-                    sim = [get_sim(i, doc) for i in choices]
-                    score = np.cov([ref_sim, *sim])[0,1:]
-                    answers.append(np.argmax(score))
+            with mp.Pool() as p:
+                answers = p.map(self._predict_single_question, prog_bar)
         return np.array(answers)
+    def _predict_single_question(self, question):
+        doc = question['doc']
+        stem = question['stem']
+        choices = question['choices']
+
+        stem = re.sub("下列|關於|何者|敘述|民眾|請問|正確|的",'',stem)
+        inv, stem = is_inv(stem)
+        if inv:
+            ref_sim = get_sim(stem, doc)
+            sim = [get_sim_with_inv(i,doc) for i in choices]
+            score = np.corrcoef([ref_sim, *sim])[0,1:]
+
+            score2 = ((score + 1) / 2) ** 0.6 * np.max(sim, axis=1)
+            return np.argmin(score2)
+        else:
+            ref_sim = get_sim(stem, doc)
+            sim = [get_sim(i, doc) for i in choices]
+            score = np.cov([ref_sim, *sim])[0,1:]
+            return np.argmax(score)
 
 if __name__ == '__main__':
     pass
