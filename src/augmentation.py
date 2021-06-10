@@ -16,7 +16,7 @@ def EDA(text: str) -> str:
     '''
         Easy Data Augmentation
     '''
-    
+
     # text = eda_synonym_replacement(text)
     text = eda_random_insertion(text)
     text = eda_random_swap(text)
@@ -38,7 +38,7 @@ def eda_synonym_replacement(
     seg = (','.join(jieba.cut(text))).split(',')
     if int(len(seg) * ratio) <= 1:
         return text
-    
+
     replace_n_word = np.random.randint(1, int(len(seg) * ratio))
     indices = np.random.permutation(len(seg))[:replace_n_word]
     for i in indices:
@@ -58,10 +58,10 @@ def eda_random_insertion(
         Implementation of EDA RI
     '''
 
-    if int(len(text) * ratio) <= 1:
+    if int(len(text) * ratio) < 1:
         return text
 
-    insert_n_char = np.random.randint(1, int(len(text) * ratio))
+    insert_n_char = int(len(text) * ratio)
     indices = np.random.permutation(len(text))[:insert_n_char]
     for i in indices:
         idx = np.random.randint(0, len(stopwords))
@@ -78,11 +78,11 @@ def eda_random_swap(
         Implementation of EDA RS
     '''
 
-    if int(len(text) * ratio) <= 1:
+    if int(len(text) * ratio) < 1:
         return text
 
     l = len(text)
-    swap_n_char = np.random.randint(1, int(l * ratio))
+    swap_n_char = int(l * ratio)
     text = list(text)
     for i in range(swap_n_char):
         swap_indices = np.random.permutation(l)[:2]
@@ -100,10 +100,10 @@ def eda_random_deletion(
         Implementation of EDA RD
     '''
 
-    if int(len(text) * ratio) <= 1:
+    if int(len(text) * ratio) < 1:
         return text
 
-    delete_n_char = np.random.randint(1, int(len(text) * ratio))
+    delete_n_char = int(len(text) * ratio)
     indices = np.random.permutation(len(text))[:-delete_n_char]
     indices = np.sort(indices)
 
@@ -123,9 +123,9 @@ def sentence_random_swap(
     '''
 
     n_sent = (input_dict['attention_mask'].sum(1) > 2).long().sum().item()
-    if int(n_sent * max_swap_ratio) <= 1:
+    if int(n_sent * max_swap_ratio) < 1:
         return input_dict
-    swap_n_sent = np.random.randint(1, int(n_sent * max_swap_ratio))
+    swap_n_sent = int(n_sent * max_swap_ratio)
     output_dict = {}
     for i in range(swap_n_sent):
         swap_indices = np.random.permutation(n_sent)[:2]
@@ -150,9 +150,9 @@ def sentence_random_removal(
     '''
 
     n_sent = input_dict['input_ids'].shape[0]
-    if int(n_sent * max_removal_ratio) <= 1:
+    if int(n_sent * max_removal_ratio) < 1:
         return input_dict
-    remove_n_sent = np.random.randint(1, int(n_sent * max_removal_ratio))
+    remove_n_sent = int(n_sent * max_removal_ratio)
     indices = np.random.permutation(n_sent)[:-remove_n_sent]
     indices = np.sort(indices)
     output_dict = {}

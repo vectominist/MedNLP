@@ -89,7 +89,7 @@ class SBertRiskPredictor(nn.Module):
             ['transformer', 'gru', 'lstm'], post_encoder_type
         if post_encoder_type == 'transformer':
             self.post_encoder = nn.TransformerEncoder(
-                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 3)
+                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
         elif post_encoder_type == 'gru':
             self.post_encoder = nn.GRU(
                 312, 156, 2, dropout=0.1,
@@ -134,6 +134,7 @@ class SBertRiskPredictor(nn.Module):
                 src_key_padding_mask=s_mask.squeeze(2)).transpose(0, 1)
 
         h_repr = self.attention(sent_embs, s_mask)
+        # h_repr = sent_embs[:, 0, :]
         prediction = self.pred_head(h_repr)
 
         outputs = {'logits': prediction}

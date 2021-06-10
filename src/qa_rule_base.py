@@ -41,7 +41,8 @@ def eval(config: dict):
 
         if config['data']['pred_paths'][i] == '':
             continue
-        os.makedirs(os.path.split(config['data']['pred_paths'][i])[0], exist_ok=True)
+        os.makedirs(os.path.split(
+            config['data']['pred_paths'][i])[0], exist_ok=True)
         with open(config['data']['pred_paths'][i], 'w') as fp:
             writer = csv.writer(fp)
             writer.writerow(['id', 'answer'])
@@ -49,6 +50,7 @@ def eval(config: dict):
             assert len(ids) == len(answers)
             for j in range(len(answers)):
                 writer.writerow([str(ids[j]), label2answer[answers[j]]])
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Training for QA Evaluation')

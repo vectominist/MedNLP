@@ -1,3 +1,3 @@
 # !/bin/bash
 
-python src/qa_rule_base.py --config config/qa.yaml
+python3 src/qa_rule_base.py --config config/qa.yaml

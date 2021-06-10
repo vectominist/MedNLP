@@ -46,19 +46,24 @@ class ClassificationDataset(Dataset):
 
         self.path = path
         self.split = split
-        max_doc_len = 300
+        self.max_doc_len = 500
         sent_lens = []
 
         with open(path, 'r') as fp:
             rows = csv.reader(fp)
+            row_list = []
+            for i, r in enumerate(rows):
+                if i == 0:
+                    continue
+                row_list.append(r)
 
         with mp.Pool() as p:
             data = p.starmap(self._preprocess_single_data,
-                             enumerate(rows[1:], start=1))
+                             enumerate(row_list, start=1))
 
-        sent_lens = np.array(sent_lens)
-        print('Sentence lengths: avg = {:.1f}, med = {}, min = {}, max = {}'
-              .format(sent_lens.mean(), np.median(sent_lens), sent_lens.min(), sent_lens.max()))
+        # sent_lens = np.array(sent_lens)
+        # print('Sentence lengths: avg = {:.1f}, med = {}, min = {}, max = {}'
+        #       .format(sent_lens.mean(), np.median(sent_lens), sent_lens.min(), sent_lens.max()))
 
         if split == 'train':
             data = [data[i] for i in range(len(data)) if (i + 1) % val_r != 0]
@@ -83,10 +88,10 @@ class ClassificationDataset(Dataset):
     def _preprocess_single_data(self, i, row):
         idx, sent = int(row[1]), row[2]
         sent = normalize_sent_with_jieba(
-            sent, reduce=False, max_sent_len=50)
-        sent = crop_doc(sent, max_doc_len)
+            sent, reduce=False, max_sent_len=40)
+        sent = crop_doc(sent, self.max_doc_len)
         sent = [merge_chinese(' '.join(s)) for s in sent]
-        if split in ['train', 'val']:
+        if self.split in ['train', 'val']:
             label = int(row[3])
             return idx, sent, label
         else:

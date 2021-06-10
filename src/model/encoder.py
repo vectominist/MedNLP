@@ -10,7 +10,7 @@ Implement the PE function.
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_emb: int, dropout: float = 0.1, max_len: int = 300):
+    def __init__(self, d_emb: int, dropout: float = 0.1, max_len: int = 512):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 

@@ -1,0 +1,9 @@
+PyYAML==5.1.2
+transformers==4.6.1
+sentencepiece==0.1.95
+jieba==0.42.1
+opencc-python-reimplemented==0.1.6
+edit_distance==1.0.4
+torch==1.8.1
+numpy>=1.18.1
+tqdm==4.43.0
