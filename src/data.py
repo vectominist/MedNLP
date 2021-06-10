@@ -27,11 +27,13 @@ choice2int = {
     'Ａ': 0, 'Ｂ': 1, 'Ｃ': 2
 }
 
+
 def crop_doc(sents, max_doc_len=170):
     if len(sents) < max_doc_len:
         return sents + [""] * (max_doc_len - len(sents))
     else:
         return sents[-max_doc_len:]
+
 
 class ClassificationDataset(Dataset):
     '''
@@ -44,12 +46,19 @@ class ClassificationDataset(Dataset):
 
         self.path = path
         self.split = split
-        max_doc_len = 120
+        max_doc_len = 300
+        sent_lens = []
 
         with open(path, 'r') as fp:
             rows = csv.reader(fp)
+
         with mp.Pool() as p:
-            data = p.starmap(self._preprocess_single_data, enumerate(rows[1:], start=1))
+            data = p.starmap(self._preprocess_single_data,
+                             enumerate(rows[1:], start=1))
+
+        sent_lens = np.array(sent_lens)
+        print('Sentence lengths: avg = {:.1f}, med = {}, min = {}, max = {}'
+              .format(sent_lens.mean(), np.median(sent_lens), sent_lens.min(), sent_lens.max()))
 
         if split == 'train':
             data = [data[i] for i in range(len(data)) if (i + 1) % val_r != 0]
@@ -70,7 +79,8 @@ class ClassificationDataset(Dataset):
             print('Performing random sentence swap for data augmentation')
         if eda:
             print('Performing easy data augmentation')
-    def _preprocess_single_data(self,i,row):
+
+    def _preprocess_single_data(self, i, row):
         idx, sent = int(row[1]), row[2]
         sent = normalize_sent_with_jieba(
             sent, reduce=False, max_sent_len=50)
@@ -97,7 +107,7 @@ class ClassificationDataset(Dataset):
                 sents = [EDA(s) for s in sents]
             item = tokenizer_risk(
                 sents, return_tensors="pt", padding="max_length",
-                truncation="longest_first", max_length=50)
+                truncation="longest_first", max_length=40)
             if self.rand_swap:
                 item = sentence_random_swap(item)
             if self.rand_remove:
@@ -108,23 +118,25 @@ class ClassificationDataset(Dataset):
             sents = self.data[index][1]
             item = tokenizer_risk(
                 sents, return_tensors="pt", padding="max_length",
-                truncation="longest_first", max_length=50)
+                truncation="longest_first", max_length=40)
             return item
+
 
 class QADatasetRuleBase(Dataset):
     def __init__(self, path):
         self.path = path
 
-
         # Read QA data
         with open(path, 'r') as fp:
             data_list = json.load(fp)
         with mp.Pool() as p:
-            data = p.starmap(self._preprocess_single_data, enumerate(data_list))
+            data = p.starmap(self._preprocess_single_data,
+                             enumerate(data_list))
 
         self.data = data
 
         print('Found {} samples of QA'.format(len(self.data)))
+
     def _preprocess_single_data(self, i, d):
         def normalize(sent: str) -> str:
             # Helper function for normalization
@@ -151,20 +163,70 @@ class QADatasetRuleBase(Dataset):
         else:
             answer = None
         return {
-                'id': idx,
-                'article_id': d['article_id'],
-                'doc': sent,
-                'stem': stem,
-                'choices': choices,
-                'answer': answer
-            }
+            'id': idx,
+            'article_id': d['article_id'],
+            'doc': sent,
+            'stem': stem,
+            'choices': choices,
+            'answer': answer
+        }
 
     def __getitem__(self, index):
         return self.data[index]
+
     def __len__(self):
         return len(self.data)
+
     def get_ids(self):
         return [d['id'] for d in self.data]
+
+
+class MLMDataset(Dataset):
+    '''
+        Dataset for Masked LM
+    '''
+
+    def __init__(self, path, split='train', val_r=10, eda=False):
+        assert split in ['train', 'val', 'dev', 'test', 'train_all']
+
+        self.path = path
+        self.split = split
+
+        with open(path, 'r') as fp:
+            data = []
+            for line in fp.readlines():
+                line = line.strip()  # should be normalized and segmented
+                if line == '':
+                    continue
+                data.append(line)
+
+        if split == 'train':
+            data = [data[i] for i in range(len(data)) if i % val_r != 0]
+        elif split == 'val':
+            data = [data[i] for i in range(len(data)) if i % val_r == 0]
+
+        self.data = data
+
+        print('Found {} samples for {} set of the classifcation task'
+              .format(len(self.data), split))
+
+        self.eda = eda
+        if eda:
+            print('Performing easy data augmentation')
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        sent = self.data[index]
+        if self.eda:
+            sent = EDA(sent)
+        tokens = tokenizer_risk(
+            sent, return_tensors="pt", padding="max_length",
+            truncation="longest_first", max_length=40,
+            return_special_tokens_mask=True)
+        return {key: val[0] for key, val in tokens.items()}
+
 
 if __name__ == '__main__':
     pass

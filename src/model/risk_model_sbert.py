@@ -109,6 +109,7 @@ class SBertRiskPredictor(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(156, 2)
         )
+        self.label_smoothing = 0.1
 
     def forward(self, **inputs):
         # input size = B x Sentences x Length
@@ -138,7 +139,15 @@ class SBertRiskPredictor(nn.Module):
         outputs = {'logits': prediction}
 
         if inputs.get('labels', None):
-            loss = nn.CrossEntropyLoss()(prediction, inputs['labels'])
+            if self.label_smoothing == 0.:
+                loss = nn.CrossEntropyLoss()(prediction, inputs['labels'])
+            else:
+                target = torch.full_like(
+                    prediction, self.label_smoothing)
+                target.scatter_(1, inputs['labels'], 1. - self.label_smoothing)
+                pred = torch.log_softmax(prediction, dim=1)
+                loss = (pred * target).sum() / B
+
             outputs['loss'] = loss
             outputs['labels'] = inputs['labels']
 

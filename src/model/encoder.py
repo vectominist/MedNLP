@@ -8,8 +8,9 @@ import math
 Implement the PE function.
 '''
 
+
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_emb: int, dropout: float = 0.1, max_len: int = 200):
+    def __init__(self, d_emb: int, dropout: float = 0.1, max_len: int = 300):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
 
@@ -163,8 +164,8 @@ class Encoder(nn.Module):
         self.layernorm2 = nn.LayerNorm(d_emb)
 
     def forward(
-            self, x: torch.Tensor, mask: torch.Tensor, 
-            q = None, is_qa: bool = False) -> torch.Tensor:
+            self, x: torch.Tensor, mask: torch.Tensor,
+            q=None, is_qa: bool = False) -> torch.Tensor:
         # Shape: [B, S, H]
         emb = self.layernorm1(self.linear(x))
 
