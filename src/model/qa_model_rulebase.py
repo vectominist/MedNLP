@@ -43,7 +43,7 @@ def get_sim_with_inv(sent:str, doc:list):
             # match_seq.append(s[blocks[0][0]:blocks[-1][0] + 1])
             match_len.append(blocks[-1][0] - blocks[0][0] + 1)
 
-    match_score = match_score ** 2 / (np.array(match_len) + 1e-10)
+    match_score = match_score * (match_score / (np.array(match_len) + 1e-10)) ** 0.7
     match_score -= match_score.mean()
 
     _filter = [1, 0.6, 0.36]
@@ -73,8 +73,9 @@ class RuleBaseQA():
         stem = question['stem']
         choices = question['choices']
 
-        stem = re.sub("下列|關於|何者|敘述|民眾|請問|正確|的",'',stem)
+        stem = re.sub("下列|關於|何者|敘述|民眾|請問|正確|的|醫師",'',stem)
         inv, stem = is_inv(stem)
+        choices = [re.sub('|'.join(stem) + '|民眾|醫師','',i) for i in choices]
         if inv:
             ref_sim = get_sim(stem, doc)
             sim = [get_sim_with_inv(i,doc) for i in choices]

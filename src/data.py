@@ -18,6 +18,7 @@ from augmentation import (
 
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
+import multiprocessing as mp
 
 tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
 
@@ -46,21 +47,9 @@ class ClassificationDataset(Dataset):
         max_doc_len = 120
 
         with open(path, 'r') as fp:
-            data = []
             rows = csv.reader(fp)
-            for i, row in enumerate(rows):
-                if i == 0:
-                    continue
-                idx, sent = int(row[1]), row[2]
-                sent = normalize_sent_with_jieba(
-                    sent, reduce=False, max_sent_len=50)
-                sent = crop_doc(sent, max_doc_len)
-                sent = [merge_chinese(' '.join(s)) for s in sent]
-                if split in ['train', 'val']:
-                    label = int(row[3])
-                    data.append((idx, sent, label))
-                else:
-                    data.append((idx, sent))
+        with mp.Pool() as p:
+            data = p.starmap(self._preprocess_single_data, enumerate(rows[1:], start=1))
 
         if split == 'train':
             data = [data[i] for i in range(len(data)) if (i + 1) % val_r != 0]
@@ -81,6 +70,17 @@ class ClassificationDataset(Dataset):
             print('Performing random sentence swap for data augmentation')
         if eda:
             print('Performing easy data augmentation')
+    def _preprocess_single_data(self,i,row):
+        idx, sent = int(row[1]), row[2]
+        sent = normalize_sent_with_jieba(
+            sent, reduce=False, max_sent_len=50)
+        sent = crop_doc(sent, max_doc_len)
+        sent = [merge_chinese(' '.join(s)) for s in sent]
+        if split in ['train', 'val']:
+            label = int(row[3])
+            return idx, sent, label
+        else:
+            return idx, sent
 
     def get_ids(self):
         return [d[0] for d in self.data]
@@ -115,6 +115,17 @@ class QADatasetRuleBase(Dataset):
     def __init__(self, path):
         self.path = path
 
+
+        # Read QA data
+        with open(path, 'r') as fp:
+            data_list = json.load(fp)
+        with mp.Pool() as p:
+            data = p.starmap(self._preprocess_single_data, enumerate(data_list))
+
+        self.data = data
+
+        print('Found {} samples of QA'.format(len(self.data)))
+    def _preprocess_single_data(self, i, d):
         def normalize(sent: str) -> str:
             # Helper function for normalization
             sent = normalize_sent_with_jieba(
@@ -122,42 +133,32 @@ class QADatasetRuleBase(Dataset):
                 max_sent_len=50, remove_short=False)
             return merge_chinese(' '.join(sent[0]))
 
-        # Read QA data
-        with open(path, 'r') as fp:
-            data_list = json.load(fp)
-            data = []
-            for i, d in enumerate(data_list):
-                idx = d['id']
-                sent = normalize_sent_with_jieba(
-                    d['text'], reduce=False, max_sent_len=np.inf)
-                # sent = crop_doc(sent, max_doc_len)
-                sent = [merge_chinese(' '.join(s)) for s in sent]
-                stem = normalize(d['question']['stem'])
-                choices = [normalize(c['text'])
-                           for c in d['question']['choices']]
-                if 'answer' in d.keys():
-                    d['answer'] = d['answer'].strip()
-                    if d['answer'] not in choice2int.keys():
-                        answer = [k for k in range(3)
-                                  if d['question']['choices'][k]['text'] == d['answer']][0]
-                    else:
-                        answer = choice2int[d['answer']]
-                else:
-                    answer = None
-                data.append(
-                    {
-                        'id': idx,
-                        'article_id': d['article_id'],
-                        'doc': sent,
-                        'stem': stem,
-                        'choices': choices,
-                        'answer': answer
-                    }
-                )
+        idx = d['id']
+        sent = normalize_sent_with_jieba(
+            d['text'], reduce=False, max_sent_len=np.inf)
+        # sent = crop_doc(sent, max_doc_len)
+        sent = [merge_chinese(' '.join(s)) for s in sent]
+        stem = normalize(d['question']['stem'])
+        choices = [normalize(c['text'])
+                   for c in d['question']['choices']]
+        if 'answer' in d.keys():
+            d['answer'] = d['answer'].strip()
+            if d['answer'] not in choice2int.keys():
+                answer = [k for k in range(3)
+                          if d['question']['choices'][k]['text'] == d['answer']][0]
+            else:
+                answer = choice2int[d['answer']]
+        else:
+            answer = None
+        return {
+                'id': idx,
+                'article_id': d['article_id'],
+                'doc': sent,
+                'stem': stem,
+                'choices': choices,
+                'answer': answer
+            }
 
-        self.data = data
-
-        print('Found {} samples of QA'.format(len(self.data)))
     def __getitem__(self, index):
         return self.data[index]
     def __len__(self):
