@@ -18,6 +18,7 @@ from transformers import (
 )
 from data import ClassificationDataset
 from model.risk_model_sbert import SBertRiskPredictor
+from util.utils import count_parameters
 
 
 def risk_eval_metrics(eval_pred):
@@ -29,7 +30,11 @@ def risk_eval_metrics(eval_pred):
 
 def train(config: dict, val: bool = True):
     print('Fine-tuning for the Risk Evalutation Task')
-    model = SBertRiskPredictor(config['model']['pretrained'])
+    model = SBertRiskPredictor(
+        config['model']['pretrained'],
+        post_encoder_type=config['model']['post_encoder_type'],
+        d_model=config['model']['d_model'])
+    print('Parameters = {}'.format(count_parameters(model)))
     tr_set = ClassificationDataset(
         config['data']['train_path'], 'train',
         val_r=10000,  # FIXME: ignore val

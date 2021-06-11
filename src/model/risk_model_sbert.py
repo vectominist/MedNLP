@@ -81,7 +81,7 @@ class SBertRiskPredictor(nn.Module):
         Sentence Bert (or other pre-trained Bert) for Risk Prediction
     '''
 
-    def __init__(self, model_name, post_encoder_type='transformer'):
+    def __init__(self, model_name, post_encoder_type='transformer', d_model=312):
         super(SBertRiskPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
 
@@ -89,18 +89,18 @@ class SBertRiskPredictor(nn.Module):
             ['transformer', 'gru', 'lstm'], post_encoder_type
         if post_encoder_type == 'transformer':
             self.post_encoder = nn.TransformerEncoder(
-                nn.TransformerEncoderLayer(312, 8, 1024, dropout=0.1), 2)
+                nn.TransformerEncoderLayer(d_model, 8, 1024, dropout=0.1), 2)
         elif post_encoder_type == 'gru':
             self.post_encoder = nn.GRU(
-                312, 156, 2, dropout=0.1,
+                d_model, d_model, 2, dropout=0.1,
                 batch_first=True, bidirectional=True)
         elif post_encoder_type == 'lstm':
             self.post_encoder = nn.LSTM(
-                312, 156, 2, dropout=0.1,
+                d_model, d_model, 2, dropout=0.1,
                 batch_first=True, bidirectional=True)
 
-        self.attention = Encoder(312, 0.1, 8)
-        self.pred_head = nn.Linear(312, 2)
+        self.attention = Encoder(d_model, 0.1, 8)
+        self.pred_head = nn.Linear(d_model, 2)
         self.label_smoothing = 0.1
 
     def forward(self, **inputs):
