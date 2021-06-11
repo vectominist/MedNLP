@@ -99,16 +99,8 @@ class SBertRiskPredictor(nn.Module):
                 312, 156, 2, dropout=0.1,
                 batch_first=True, bidirectional=True)
 
-        self.attention = Encoder(312, 0.1)
-        self.pred_head = nn.Sequential(
-            nn.Linear(312, 312),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(312, 156),
-            nn.ReLU(),
-            nn.Dropout(0.1),
-            nn.Linear(156, 2)
-        )
+        self.attention = Encoder(312, 0.1, 8)
+        self.pred_head = nn.Linear(312, 2)
         self.label_smoothing = 0.1
 
     def forward(self, **inputs):

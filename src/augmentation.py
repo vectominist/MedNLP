@@ -12,15 +12,18 @@ with open('src/stopwords/processed_stopwords.txt', 'r') as fp:
     stopwords = [w.strip() for w in fp.readlines() if w.strip() != '']
 
 
-def EDA(text: str) -> str:
+def EDA(text: str,
+        p_insert: float = 0.1,
+        p_swap: float = 0.1,
+        p_delete: float = 0.1) -> str:
     '''
         Easy Data Augmentation
     '''
 
     # text = eda_synonym_replacement(text)
-    text = eda_random_insertion(text)
-    text = eda_random_swap(text)
-    text = eda_random_deletion(text)
+    text = eda_random_insertion(text, p_insert)
+    text = eda_random_swap(text, p_swap)
+    text = eda_random_deletion(text, p_delete)
 
     return text
 

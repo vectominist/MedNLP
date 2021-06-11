@@ -46,6 +46,7 @@ class ClassificationDataset(Dataset):
 
         self.path = path
         self.split = split
+        self.max_sent_len = 40
         self.max_doc_len = 500
         sent_lens = []
 
@@ -88,7 +89,7 @@ class ClassificationDataset(Dataset):
     def _preprocess_single_data(self, i, row):
         idx, sent = int(row[1]), row[2]
         sent = normalize_sent_with_jieba(
-            sent, reduce=False, max_sent_len=40)
+            sent, reduce=False, max_sent_len=20)
         sent = crop_doc(sent, self.max_doc_len)
         sent = [merge_chinese(' '.join(s)) for s in sent]
         if self.split in ['train', 'val']:
@@ -109,10 +110,10 @@ class ClassificationDataset(Dataset):
         if self.split in ['train', 'val']:
             sents = self.data[index][1]
             if self.eda:
-                sents = [EDA(s) for s in sents]
+                sents = [EDA(s, 0., .1, .1) for s in sents]
             item = tokenizer_risk(
                 sents, return_tensors="pt", padding="max_length",
-                truncation="longest_first", max_length=40)
+                truncation="longest_first", max_length=self.max_sent_len)
             if self.rand_swap:
                 item = sentence_random_swap(item)
             if self.rand_remove:
@@ -123,7 +124,7 @@ class ClassificationDataset(Dataset):
             sents = self.data[index][1]
             item = tokenizer_risk(
                 sents, return_tensors="pt", padding="max_length",
-                truncation="longest_first", max_length=40)
+                truncation="longest_first", max_length=self.max_sent_len)
             return item
 
 
