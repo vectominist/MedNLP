@@ -16,18 +16,18 @@ tfidf.fit(X_train + X_test)
 X_train = tfidf.transform(X_train)
 X_test = tfidf.transform(X_test)
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
 
 model = LinearSVC()
-model.fit(X_train, Y_train)
-Y_train_pred = model.predict(X_train)
-Y_pred = model.predict(X_test)
-
-print('Train acc', (Y_train_pred == Y_train).mean())
-print('Test acc', (Y_pred == Y_test).mean())
+clf = CalibratedClassifierCV(model)
+clf.fit(X_train, Y_train)
+Y_train_pred = clf.predict_proba(X_train)[:,1]
+Y_pred = clf.predict_proba(X_test)[:,1]
 
 
+from sklearn.metrics import roc_auc_score
+print('Train AUROC', roc_auc_score(Y_train, Y_train_pred))
+print('Test AUROC', roc_auc_score(Y_test, Y_pred))
 
 
