@@ -81,9 +81,18 @@ class SBertRiskPredictor(nn.Module):
         Sentence Bert (or other pre-trained Bert) for Risk Prediction
     '''
 
-    def __init__(self, model_name, post_encoder_type='transformer', d_model=312):
+    def __init__(
+            self,
+            model_name, post_encoder_type='transformer', d_model=312,
+            sent_aggregate_type='mean_pool'):
         super(SBertRiskPredictor, self).__init__()
         self.sentsence_encoder = AutoModel.from_pretrained(model_name)
+
+        self.sent_aggregate_type = sent_aggregate_type
+        assert sent_aggregate_type in \
+            ['mean_pool', 'cls', 'attention']
+        if self.sent_aggregate_type == 'attention':
+            self.agg_attention = Encoder(d_model, 0.1, 8)
 
         assert post_encoder_type in \
             ['transformer', 'gru', 'lstm'], post_encoder_type
@@ -92,11 +101,11 @@ class SBertRiskPredictor(nn.Module):
                 nn.TransformerEncoderLayer(d_model, 8, 1024, dropout=0.1), 2)
         elif post_encoder_type == 'gru':
             self.post_encoder = nn.GRU(
-                d_model, d_model, 2, dropout=0.1,
+                d_model, d_model // 2, 2, dropout=0.1,
                 batch_first=True, bidirectional=True)
         elif post_encoder_type == 'lstm':
             self.post_encoder = nn.LSTM(
-                d_model, d_model, 2, dropout=0.1,
+                d_model, d_model // 2, 2, dropout=0.1,
                 batch_first=True, bidirectional=True)
 
         self.attention = Encoder(d_model, 0.1, 8)
@@ -106,7 +115,8 @@ class SBertRiskPredictor(nn.Module):
     def forward(self, **inputs):
         # input size = B x Sentences x Length
 
-        _, s_mask = self.create_mask(inputs['attention_mask'])
+        w_mask, s_mask = self.create_mask(inputs['attention_mask'])
+        # w_mask: B x S x L x 1
         # s_mask: B x S x 1
 
         sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
@@ -114,8 +124,13 @@ class SBertRiskPredictor(nn.Module):
         for key, val in inputs.items():
             inputs[key] = val.reshape(B * S, L)
 
-        out = self.sentsence_encoder(**inputs)
-        sent_embs = mean_pooling(out, inputs['attention_mask'])
+        out = self.sentsence_encoder(**inputs)  # B*S x L x D
+        if self.sent_aggregate_type == 'mean_pool':
+            sent_embs = mean_pooling(out, inputs['attention_mask'])
+        elif self.sent_aggregate_type == 'cls':
+            sent_embs = out[0][:, 0, :]
+        elif self.sent_aggregate_type == 'attention':
+            sent_embs = self.agg_attention(out[0], w_mask.reshape(B * S, L, 1))
         sent_embs = sent_embs.reshape(B, S, -1)
 
         if type(self.post_encoder) in [nn.GRU, nn.LSTM]:
@@ -126,7 +141,6 @@ class SBertRiskPredictor(nn.Module):
                 src_key_padding_mask=s_mask.squeeze(2)).transpose(0, 1)
 
         h_repr = self.attention(sent_embs, s_mask)
-        # h_repr = sent_embs[:, 0, :]
         prediction = self.pred_head(h_repr)
 
         outputs = {'logits': prediction}

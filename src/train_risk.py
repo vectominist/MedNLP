@@ -33,7 +33,8 @@ def train(config: dict, val: bool = True):
     model = SBertRiskPredictor(
         config['model']['pretrained'],
         post_encoder_type=config['model']['post_encoder_type'],
-        d_model=config['model']['d_model'])
+        d_model=config['model']['d_model'],
+        sent_aggregate_type=config['model']['sent_aggregate_type'])
     print('Parameters = {}'.format(count_parameters(model)))
     tr_set = ClassificationDataset(
         config['data']['train_path'], 'train',
