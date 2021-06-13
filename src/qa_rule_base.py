@@ -9,35 +9,36 @@ import csv
 import numpy as np
 
 from data import QADatasetRuleBase
-from model import RuleBaseQA
+from model import RuleBaseQA, RuleBaseQA2
 
 label2answer = ['A', 'B', 'C']
 
 
-def qa_eval_metrics(eval_pred):
-    logits, labels = eval_pred
-    if type(logits) == tuple:
-        logits = logits[0]
-    if type(labels) == tuple:
-        labels = labels[0]
-    answer = np.argmax(logits, axis=1)
-    accuracy = (answer == labels).astype(float).mean()
-    return {'acc': accuracy}
-
-
 def eval(config: dict):
     print('Evaluating the rule-based model')
-    model = RuleBaseQA()
+    # model = RuleBaseQA()
+    model = RuleBaseQA2()
 
     for i in range(len(config['data']['test_paths'])):
         print('[{}] Evaluating {}'.format(
             i + 1, config['data']['test_paths'][i]))
 
         tt_set = QADatasetRuleBase(config['data']['test_paths'][i])
-        answers = model.predict(tt_set)
+        answers, is_inv = model.predict(tt_set)
+
         if tt_set[0]['answer'] is not None:
             label = np.array([i['answer'] for i in tt_set])
-            print("Accuracy: %s" % (label == answers).mean())
+            answers_nor = answers[is_inv != True]
+            answers_inv = answers[is_inv == True]
+            label_nor = np.array(
+                [i['answer'] for idx, i in enumerate(tt_set) if not is_inv[idx]])
+            label_inv = np.array(
+                [i['answer'] for idx, i in enumerate(tt_set) if is_inv[idx]])
+            print('All ACC     = {:.4f}'.format((label == answers).mean()))
+            print('Normal ACC  = {:.4f}  ({} samples)'
+                  .format((label_nor == answers_nor).mean(), len(answers_nor)))
+            print('Inverse ACC = {:.4f}  ({} samples)'
+                  .format((label_inv == answers_inv).mean(), len(answers_inv)))
 
         if config['data']['pred_paths'][i] == '':
             continue

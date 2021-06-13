@@ -41,11 +41,14 @@ class ClassificationDataset(Dataset):
     '''
 
     def __init__(self, path, split='train', val_r=10,
-                 rand_remove=False, rand_swap=False, eda=False):
+                 rand_remove=False, rand_swap=False, eda=False,
+                 max_orig_sent_len=20, max_sent_len=40,
+                 max_doc_len=500):
         assert split in ['train', 'val', 'dev', 'test']
 
         self.path = path
         self.split = split
+        self.max_orig_sent_len = 20
         self.max_sent_len = 40
         self.max_doc_len = 500
         sent_lens = []
@@ -89,7 +92,7 @@ class ClassificationDataset(Dataset):
     def _preprocess_single_data(self, i, row):
         idx, sent = int(row[1]), row[2]
         sent = normalize_sent_with_jieba(
-            sent, reduce=False, max_sent_len=20)
+            sent, reduce=False, max_sent_len=self.max_orig_sent_len)
         sent = crop_doc(sent, self.max_doc_len)
         sent = [merge_chinese(' '.join(s)) for s in sent]
         if self.split in ['train', 'val']:
@@ -148,7 +151,8 @@ class QADatasetRuleBase(Dataset):
             # Helper function for normalization
             sent = normalize_sent_with_jieba(
                 sent, split=False, reduce=False,
-                max_sent_len=50, remove_short=False)
+                max_sent_len=70, remove_short=False,
+                split_type='none')
             return merge_chinese(' '.join(sent[0]))
 
         idx = d['id']

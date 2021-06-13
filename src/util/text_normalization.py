@@ -7,7 +7,8 @@ chinese_punctuations = r"""，。、！？‘’·⋯‧”“"""
 english_punctuations = string.punctuation.replace(':', '')
 remove_punctuations = english_punctuations + chinese_punctuations
 translator = str.maketrans(remove_punctuations, ' ' * len(remove_punctuations))
-remove_chars = '嗯恩啊嘛呃唉哎誒欸痾喔ㄟ哦阿齁啦嘿哼亨蛤吧嗎呵餒'
+# remove_chars = '嗯恩啊嘛呃唉哎誒欸痾喔ㄟ哦阿齁啦嘿哼亨蛤吧嗎呵餒'
+remove_chars = '嗯恩啊嘛呃唉哎誒欸痾喔ㄟ哦齁啦嘿哼蛤吧呵'
 translator2 = str.maketrans(remove_chars, ' ' * len(remove_chars))
 
 word_dict = [
@@ -90,6 +91,9 @@ def normalize_sent_with_jieba(
     text = text.replace('砲', '炮')
     text = text.replace('爲', '為')
     text = text.replace('羣', '群')
+    text = text.replace('臺', '台')
+    text = text.replace('帶套', '戴套')
+    # text = text.replace('套子', '保險套')
     text = text.replace('甚麼', '什麼')
     text = text.replace('位什麼', '為什麼')
     text = re.sub('(哈)+', '哈', text)
