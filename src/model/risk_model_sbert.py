@@ -28,16 +28,20 @@ class SBertRiskPredictor(nn.Module):
 
     def __init__(
             self,
-            model_name, post_encoder_type='transformer', d_model=312,
-            sent_aggregate_type='mean_pool'):
+            pretrained, post_encoder_type='transformer', d_model=312,
+            sent_aggregate_type='mean_pool', gate_layer=False):
         super(SBertRiskPredictor, self).__init__()
-        self.sentsence_encoder = AutoModel.from_pretrained(model_name)
+        self.sentsence_encoder = AutoModel.from_pretrained(pretrained)
 
         self.sent_aggregate_type = sent_aggregate_type
         assert sent_aggregate_type in \
             ['mean_pool', 'cls', 'attention']
         if self.sent_aggregate_type == 'attention':
             self.agg_attention = Encoder(d_model, 0.1, 8)
+
+        self.gate_layer = None
+        if gate_layer:
+            self.gate_layer = nn.Linear(d_model, 1)
 
         assert post_encoder_type in \
             ['transformer', 'gru', 'lstm', 'none'], post_encoder_type
@@ -57,6 +61,7 @@ class SBertRiskPredictor(nn.Module):
 
         self.attention = Encoder(d_model, 0.1, 8)
         self.pred_head = nn.Linear(d_model, 2)
+        self.dropout = nn.Dropout(0.1)
         self.label_smoothing = 0.1
 
     def forward(self, **inputs):
@@ -66,7 +71,6 @@ class SBertRiskPredictor(nn.Module):
         # w_mask: B x S x L x 1
         # s_mask: B x S x 1
 
-        sent_lens = (inputs['attention_mask'].sum(2) > 2).long().sum(1)
         B, S, L = inputs['input_ids'].shape
         for key, val in inputs.items():
             inputs[key] = val.reshape(B * S, L)
@@ -80,6 +84,10 @@ class SBertRiskPredictor(nn.Module):
             sent_embs = self.agg_attention(out[0], w_mask.reshape(B * S, L, 1))
         sent_embs = sent_embs.reshape(B, S, -1)
 
+        if self.gate_layer is not None:
+            sent_embs = sent_embs * \
+                torch.sigmoid(self.gate_layer(sent_embs))
+
         if type(self.post_encoder) in [nn.GRU, nn.LSTM]:
             sent_embs, _ = self.post_encoder(sent_embs)
         elif type(self.post_encoder) == nn.TransformerEncoder:
@@ -88,6 +96,7 @@ class SBertRiskPredictor(nn.Module):
                 src_key_padding_mask=s_mask.squeeze(2)).transpose(0, 1)
 
         h_repr = self.attention(sent_embs, s_mask)
+        h_repr = self.dropout(h_repr)
         prediction = self.pred_head(h_repr)
 
         outputs = {'logits': prediction}

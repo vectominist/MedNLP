@@ -15,17 +15,17 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Compute the positional encodings once in log space.
-        self.pe = torch.zeros(max_len, d_emb)
+        self.pe = torch.zeros(max_len, d_emb, requires_grad=False)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_emb, 2) *
                              -(math.log(10000.0) / d_emb))
         self.pe[:, 0::2] = torch.sin(position * div_term)
         self.pe[:, 1::2] = torch.cos(position * div_term)
         self.pe = self.pe.unsqueeze(0)
+        self.register_buffer('pe', self.pe)
 
     def forward(self, src):
-        pe = self.pe.detach().to(src.device)
-        output = src + pe[:, :src.size(1)]
+        output = src + self.pe[:, :src.size(1)]
         return self.dropout(output)
 
 
@@ -160,8 +160,8 @@ class Encoder(nn.Module):
         self.linear = nn.Linear(d_emb, d_emb)
         self.pe = PositionalEncoding(d_emb, p_hid)
         self.attn_emb = MultiHeadAttention(d_emb, n_head)
-        self.layernorm1 = nn.LayerNorm(d_emb)
-        self.layernorm2 = nn.LayerNorm(d_emb)
+        self.layernorm1 = nn.LayerNorm(d_emb, eps=1e-14)
+        self.layernorm2 = nn.LayerNorm(d_emb, eps=1e-14)
 
     def forward(
             self, x: torch.Tensor, mask: torch.Tensor,

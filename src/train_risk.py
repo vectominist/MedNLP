@@ -28,17 +28,13 @@ def risk_eval_metrics(eval_pred):
     return {'auroc': roc_auc_score(labels, scores)}
 
 
-def train(config: dict, val: bool = True):
+def train(config: dict):
     print('Fine-tuning for the Risk Evalutation Task')
-    model = SBertRiskPredictor(
-        config['model']['pretrained'],
-        post_encoder_type=config['model']['post_encoder_type'],
-        d_model=config['model']['d_model'],
-        sent_aggregate_type=config['model']['sent_aggregate_type'])
+    model = SBertRiskPredictor(**config['model'])
     print('Parameters = {}'.format(count_parameters(model)))
     tr_set = ClassificationDataset(
         config['data']['train_path'], 'train',
-        val_r=10000,  # FIXME: ignore val
+        val_r=10000,
         rand_remove=config['data']['rand_remove'],
         rand_swap=config['data']['rand_swap'],
         eda=config['data']['eda'])
@@ -58,7 +54,7 @@ def train(config: dict, val: bool = True):
 def eval(config: dict, ckpt: str):
     print('Evaluating the fine-tuned model')
     print('Loading model from {}'.format(ckpt))
-    model = SBertRiskPredictor(config['model']['pretrained'])
+    model = SBertRiskPredictor(**config['model'])
     ckpt = torch.load(os.path.join(ckpt, 'pytorch_model.bin'))
     model.load_state_dict(ckpt)
 
@@ -88,7 +84,6 @@ if __name__ == '__main__':
     parser.add_argument('--mode', choices=['train', 'test'], help='Mode')
     parser.add_argument('--config', type=str, help='Path to config')
     parser.add_argument('--ckpt', type=str, default='', help='Path to ckpt')
-    parser.add_argument('--val', action='store_true', help='Use val set')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
@@ -96,6 +91,6 @@ if __name__ == '__main__':
     set_seed(config['train_args']['seed'])
 
     if args.mode == 'train':
-        train(config, val=args.val)
+        train(config)
     else:
         eval(config, args.ckpt)
