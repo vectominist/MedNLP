@@ -92,8 +92,7 @@ class ClassificationDataset(Dataset):
     def _preprocess_single_data(self, i, row):
         idx, sent = int(row[1]), row[2]
         sent = normalize_sent_with_jieba(
-            sent, reduce=False, max_sent_len=self.max_orig_sent_len,
-            add_id=True, split_type='other')
+            sent, reduce=False, max_sent_len=self.max_orig_sent_len)
         sent = crop_doc(sent, self.max_doc_len)
         sent = [merge_chinese(' '.join(s)) for s in sent]
         if self.split in ['train', 'val']:

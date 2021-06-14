@@ -21,7 +21,7 @@ def read_risk_data(path: str):
             sent = row[2]
             sent = cc.convert(sent)
             sent = normalize_sent_with_jieba(
-                sent, reduce=False, max_sent_len=20, add_id=True, split_type='other')
+                sent, reduce=False, max_sent_len=20)
             sents += sent
             docs += 1
             doc_sents.append(len(sent))

@@ -9,14 +9,14 @@ out_dir=$3
 echo "Reproducing the risk assessment task"
 # Download model
 mkdir -p model
-gdown --id "" --output model/pretrained.tgz
+gdown --id "1-3Qwd8VyOb3AvhHOE8avYLdpWPBU8mc3" --output model/pretrained.tgz
 tar zxvf model/pretrained.tgz
 
 # DL-based Method
 python3 src/train_risk.py \
-    --mode "eval" \
+    --mode eval \
     --config $risk_config \
-    --ckpt "" \
+    --ckpt model/pretrained/checkpoint-378 \
     --out $out_dir/decision.bert.csv
 
 # Gradient Boosting

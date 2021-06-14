@@ -10,10 +10,8 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
 from transformers import (
-    AutoModelForSequenceClassification,
     TrainingArguments,
     Trainer,
-    EvalPrediction,
     set_seed
 )
 from data import ClassificationDataset
@@ -54,6 +52,7 @@ def train(config: dict):
 
 
 def eval(config: dict, ckpt: str):
+    ''' Testing '''
     print('Evaluating the fine-tuned model')
     print('Loading model from {}'.format(ckpt))
     model = SBertRiskPredictor(**config['model'])

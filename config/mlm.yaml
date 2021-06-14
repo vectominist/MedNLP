@@ -3,25 +3,24 @@ data:
 
 model:
   pretrained_model: ckiplab/albert-tiny-chinese
-  # pretrained_model: sentence-transformers/paraphrase-xlm-r-multilingual-v1
 train_args:
   output_dir: runs/med_mlm
 
-  per_device_train_batch_size: 1
+  per_device_train_batch_size: 32
   per_device_eval_batch_size: 1
   gradient_accumulation_steps: 1
 
   learning_rate: 0.00005
-  weight_decay: 0.00001
-  num_train_epochs: 2
+  weight_decay: 0.01
+  num_train_epochs: 10
   lr_scheduler_type: linear
-  warmup_ratio: 0.0
+  warmup_ratio: 0.1
 
   save_strategy: epoch
   seed: 7122
   report_to: none
-  logging_steps: 1000
+  logging_steps: 200
   
-  dataloader_num_workers: 0
+  dataloader_num_workers: 2
 
   label_smoothing_factor: 0.1

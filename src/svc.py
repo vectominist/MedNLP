@@ -31,10 +31,6 @@ def load_data(path, name):
     X = list(map(lambda x: ' '.join([' '.join(list(jieba.cut(i)))
                                      for i in x[1] if i != '']), data))
     X = [remove_numbers(x) for x in X]
-    # X = list(map(lambda x: ' '.join([' '.join(i)
-    #                                  for i in x[1] if i != '']), data))
-    # X = list(map(lambda x: ' '.join([''.join(i)
-    #                                  for i in x[1] if i != '']), data))
     Y = None if name == 'test' else list(map(lambda x: x[2], data))
     if Y is not None:
         print('class 0 : class 1 = {:.2f} : {:.2f}'
