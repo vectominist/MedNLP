@@ -1,7 +1,6 @@
 import numpy as np
 import tqdm
 import edit_distance
-# from scipy import spatial
 import re
 import multiprocessing as mp
 
@@ -37,7 +36,6 @@ def get_sim(sent: str, doc: list):
     match_sm = [edit_distance.SequenceMatcher(
         i, sent, action_function=edit_distance.highest_match_action) for i in doc]
     match_score = np.array([i.matches() for i in match_sm], dtype=np.float32)
-    # print(match_score)
 
     match_score -= match_score[match_score <=
                                np.percentile(match_score, 80)].mean()
@@ -56,7 +54,6 @@ def get_sim(sent: str, doc: list):
     # _filter = [0.1, 0.2, 0.4, 0.2, 0.1]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
     match_score[-1] += 1e-10
-    # print(match_score)
 
     return match_score
 
@@ -140,7 +137,6 @@ class RuleBaseQA2():
             score = np.corrcoef([ref_sim, *sim])[0, 1:]
 
             score2 = ((score + 1) / 2) ** 0.6 * np.max(sim, axis=1)
-            score2 = score
             return np.argmin(score2), True
         else:
             ref_sim = get_sim(stem, doc)

@@ -22,6 +22,7 @@ from util.utils import count_parameters
 
 
 def risk_eval_metrics(eval_pred):
+    ''' Evaluation metrics (AUROC) '''
     logits, labels = eval_pred
     scores = np.exp(logits[:, 1]) / \
         (np.exp(logits[:, 0]) + np.exp(logits[:, 1]))
@@ -29,7 +30,8 @@ def risk_eval_metrics(eval_pred):
 
 
 def train(config: dict):
-    print('Fine-tuning for the Risk Evalutation Task')
+    ''' Training '''
+    print('Training for the Risk Evalutation Task')
     model = SBertRiskPredictor(**config['model'])
     print('Parameters = {}'.format(count_parameters(model)))
     tr_set = ClassificationDataset(
@@ -84,9 +86,13 @@ if __name__ == '__main__':
     parser.add_argument('--mode', choices=['train', 'test'], help='Mode')
     parser.add_argument('--config', type=str, help='Path to config')
     parser.add_argument('--ckpt', type=str, default='', help='Path to ckpt')
+    parser.add_argument('--out', type=str, default='',
+                        help='Path to output .csv file')
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
+    if args.out != '':
+        config['data']['pred_paths'] = [args.out]
 
     set_seed(config['train_args']['seed'])
 

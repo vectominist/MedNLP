@@ -1,3 +1,4 @@
+import argparse
 import csv
 import numpy as np
 
@@ -29,16 +30,21 @@ def write_result(path, ids, data):
         writer.writerow(['article_id', 'probability'])
         assert len(ids) == len(data)
         for i in range(len(data)):
-            writer.writerow([str(ids[i]), data[i]])
+            writer.writerow([ids[i], data[i]])
 
 
 if __name__ == '__main__':
-    files = [
-        'data/result_20210611-3/decision.csv',
-        'data/result_20210613-1-gradboost-tr-dv/decision.csv'
-    ]
-    data_list = [read_csv(f) for f in files]
+    parser = argparse.ArgumentParser('Ensemble risk assessment results')
+    parser.add_argument('--preds', type=str, nargs='+',
+                        help='Prediction files')
+    parser.add_argument('--out', type=str, help='Output file')
+    args = parser.parse_args()
+    # files = [
+    #     'data/result_20210611-3/decision.csv',
+    #     'data/result_20210613-1-gradboost-tr-dv/decision.csv'
+    # ]
+    data_list = [read_csv(f) for f in args.preds]
     ids = data_list[0][0]
     data_list = [d[1] for d in data_list]
     data = ensemble(data_list)
-    write_result('data/decision.csv', ids, data)
+    write_result(args.out, ids, data)

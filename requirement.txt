@@ -7,3 +7,4 @@ edit_distance==1.0.4
 torch==1.8.1
 numpy>=1.18.1
 tqdm==4.43.0
+gdown==3.13.0
