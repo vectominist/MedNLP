@@ -1,4 +1,4 @@
 data:
-  test_paths: ['data/Train_qa_ans.json','data/Develop_QA_human.json']
-  pred_paths: ['','output/qa.csv']
+  test_paths: ['data/Train_qa_ans.json', 'data/Develop_QA_human.json']
+  pred_paths: ['', 'output/qa.csv']
 

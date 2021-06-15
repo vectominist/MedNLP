@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/average_ckpt.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Average checkpoints ]
+'''
+
 import argparse
 import os
 import torch

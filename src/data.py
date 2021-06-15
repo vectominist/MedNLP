@@ -1,16 +1,16 @@
 '''
-    Datasets
+    File      [ src/data.py ]
+    Author    [ Heng-Jui Chang & Chun-Wei Ho (NTUEE) ]
+    Synopsis  [ Data preprocessing & PyTorch dataset ]
 '''
 
 import csv
 import json
 import numpy as np
-
-import tqdm
-
+import multiprocessing as mp
 import torch
 from torch.utils.data.dataset import Dataset
-from transformers import AutoTokenizer, BertTokenizerFast
+from transformers import BertTokenizerFast
 from augmentation import (
     sentence_random_removal,
     sentence_random_swap,
@@ -18,7 +18,6 @@ from augmentation import (
 
 from util.text_normalization import normalize_sent_with_jieba
 from util.lm_normalizer import merge_chinese
-import multiprocessing as mp
 
 tokenizer_risk = BertTokenizerFast.from_pretrained('bert-base-chinese')
 
@@ -64,10 +63,6 @@ class ClassificationDataset(Dataset):
         with mp.Pool() as p:
             data = p.starmap(self._preprocess_single_data,
                              enumerate(row_list, start=1))
-
-        # sent_lens = np.array(sent_lens)
-        # print('Sentence lengths: avg = {:.1f}, med = {}, min = {}, max = {}'
-        #       .format(sent_lens.mean(), np.median(sent_lens), sent_lens.min(), sent_lens.max()))
 
         if split == 'train':
             data = [data[i] for i in range(len(data)) if (i + 1) % val_r != 0]

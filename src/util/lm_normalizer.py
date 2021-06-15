@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/lm_normalizer.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Normalization of LM data ]
+'''
+
 from opencc import OpenCC
 import re
 cc = OpenCC('s2t')

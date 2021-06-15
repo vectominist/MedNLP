@@ -1,5 +1,7 @@
 '''
-    Data Augmentation
+    File      [ src/augmentation.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Text data augmentation ]
 '''
 
 import torch
@@ -34,8 +36,8 @@ def eda_synonym_replacement(
 ) -> str:
     '''
         Implementation of EDA SR
-        FIXME: Using jieba + synonyms is very slow.
-               Should not be used during training.
+        Warning: Using jieba + synonyms is very slow.
+                 Should not be used during training.
     '''
 
     seg = (','.join(jieba.cut(text))).split(',')

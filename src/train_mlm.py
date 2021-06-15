@@ -1,5 +1,7 @@
 '''
-    Masked LM Fine-tuning
+    File      [ src/train_mlm.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Masked LM training for fine-tuning pre-trained LM ]
 '''
 
 import argparse
@@ -14,10 +16,14 @@ from transformers import (
 )
 from data import MLMDataset, tokenizer_risk
 
+import logging
+logging.disable(logging.WARNING)
+
 
 def train(config: dict):
     print('Fine-tuning Bert with Medical Dialogues (Masked LM)')
-    model = AutoModelForMaskedLM.from_pretrained(config['model']['pretrained_model'])
+    model = AutoModelForMaskedLM.from_pretrained(
+        config['model']['pretrained_model'])
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer_risk, mlm=True, mlm_probability=0.15)
 

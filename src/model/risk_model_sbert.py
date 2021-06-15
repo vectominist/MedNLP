@@ -1,6 +1,9 @@
 '''
-    Risk evaluation w/ SentenceBERT
+    File      [ src/model/risk_model_sbert.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Sentence BERT for risk assessment ]
 '''
+
 from transformers import AutoModel
 import torch
 from torch import nn

@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/ensemble_risk.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Ensemble several prediction .csv files ]
+'''
+
 import argparse
 import csv
 import numpy as np
@@ -39,10 +45,6 @@ if __name__ == '__main__':
                         help='Prediction files')
     parser.add_argument('--out', type=str, help='Output file')
     args = parser.parse_args()
-    # files = [
-    #     'data/result_20210611-3/decision.csv',
-    #     'data/result_20210613-1-gradboost-tr-dv/decision.csv'
-    # ]
     data_list = [read_csv(f) for f in args.preds]
     ids = data_list[0][0]
     data_list = [d[1] for d in data_list]

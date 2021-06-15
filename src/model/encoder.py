@@ -1,15 +1,21 @@
+'''
+    File      [ src/model/encoder.py ]
+    Author    [ IKMLab & Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Positional encoding & multi-head attention ]
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 import math
-
-'''
-Implement the PE function.
-'''
 
 
 class PositionalEncoding(nn.Module):
+    '''
+        Positional Encoding for Self-attention models
+        (Provided by the competition host)
+    '''
+
     def __init__(self, d_emb: int, dropout: float = 0.1, max_len: int = 512):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -30,6 +36,11 @@ class PositionalEncoding(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
+    '''
+        Multi-head Attention
+        (Provided by the competition host)
+    '''
+
     def __init__(self, d_hid, n_head):
         super(MultiHeadAttention, self).__init__()
         self.n_head = n_head
@@ -155,6 +166,11 @@ class MultiHeadAttention(nn.Module):
 
 
 class Encoder(nn.Module):
+    '''
+        Encoder (Multi-head Attention wrapper)
+        (Provided by the competition host)
+    '''
+
     def __init__(self, d_emb: int, p_hid: float, n_head: int = 4):
         super().__init__()
         self.linear = nn.Linear(d_emb, d_emb)

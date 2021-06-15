@@ -1,13 +1,13 @@
 data:
   train_path: data/Train_risk_classification_ans.csv
-  test_paths: ['data/dev_risk.csv', 'data/test_risk.csv']
-  pred_paths: ['output/decision.csv', 'output/pred_test_risk.csv']
-  rand_remove: true
+  test_paths: ['data/dev_risk.csv']
+  pred_paths: ['output/decision.csv']
+  rand_remove: false
   rand_swap: true
   eda: false
 
 model:
-  pretrained: ckiplab/albert-tiny-chinese
+  pretrained: checkpoints/mlm_ckpt/tr-12160
   post_encoder_type: none
   d_model: 312
   sent_aggregate_type: mean_pool

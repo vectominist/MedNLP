@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/word_dict.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Customized dictionary for jieba ]
+'''
+
 word_dict = [
     '醫師',
     '民眾',

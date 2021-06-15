@@ -1,3 +1,9 @@
+'''
+    File      [ src/model/qa_model_rulebase_2.py ]
+    Author    [ Chun-Wei Ho & Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ New rule-based QA method ]
+'''
+
 import numpy as np
 import tqdm
 import edit_distance
@@ -40,18 +46,8 @@ def get_sim(sent: str, doc: list):
     match_score -= match_score[match_score <=
                                np.percentile(match_score, 80)].mean()
     match_score[match_score < 0] = 0
-    # print(match_score)
 
-    # _filter = [1,0.5,0.25]
-    # match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
-
-    # sent_inv = is_inv(sent)
-    # inv = [is_inv(i) ^ sent_inv for i in doc]
-    # match_score[inv] *= -1
-
-    # match_score /= len(sent)
     _filter = [1, 0.4, 0.4, 0.2]
-    # _filter = [0.1, 0.2, 0.4, 0.2, 0.1]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
     match_score[-1] += 1e-10
 
@@ -63,15 +59,12 @@ def get_sim_with_inv(sent: str, doc: list):
         i, sent, action_function=edit_distance.highest_match_action) for i in doc]
     match_score = np.array([i.matches() for i in match_sm], dtype=np.float32)
 
-    # match_seq = []
     match_len = []
     for sm, s in zip(match_sm, doc):
         blocks = [*sm.get_matching_blocks()]
         if len(blocks) == 0:
-            # match_seq.append("")
             match_len.append(0)
         else:
-            # match_seq.append(s[blocks[0][0]:blocks[-1][0] + 1])
             match_len.append(blocks[-1][0] - blocks[0][0] + 1)
 
     match_score = match_score * \
@@ -84,9 +77,6 @@ def get_sim_with_inv(sent: str, doc: list):
     sent_inv = is_inv(sent)[0]
     inv = [is_inv(i)[0] ^ sent_inv for i in doc]
     match_score[inv] *= -1
-
-    # match_score /= len(sent)
-    # match_score -= match_score.mean()
 
     _filter = [1, 0.6, 0.36]
     match_score = np.convolve(match_score, _filter, 'full')[:-len(_filter) + 1]
@@ -101,18 +91,6 @@ class RuleBaseQA2():
             with mp.Pool() as p:
                 answers = p.map(self._predict_single_question, prog_bar)
 
-        # answers = []
-        # for d in dataset:
-        #     print(d['doc'])
-        #     print(d['stem'])
-        #     print(d['choices'])
-
-        #     res = self._predict_single_question(d)
-        #     answers.append(res)
-        #     print('answer =', d['answer'])
-        #     print(res)
-        #     input()
-
         scores = [a[0] for a in answers]
         is_inv = [a[1] for a in answers]
         return np.array(scores), np.array(is_inv, dtype=bool)
@@ -124,10 +102,6 @@ class RuleBaseQA2():
 
         stem = re.sub("下列|關於|何者|敘述|民眾|請問|正確|的|醫師", '', stem)
         inv, stem = is_inv(stem)
-        # choices = [re.sub('|'.join(stem) + '|民眾|醫師', '', i) for i in choices]
-        # print('|'.join(stem))
-        # choices = [re.sub('|'.join(stem) + '|民眾|醫師|的|覺得', '', i)
-        #            for i in choices]
         choices = [re.sub('|民眾|醫師|的|覺得|這件事|這', '', i)
                    for i in choices]
 

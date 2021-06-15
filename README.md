@@ -2,12 +2,12 @@ MedNLP
 ==============
 🏥 📖 Mandarin medical dialogue analysis implemented in PyTorch.
 
-### Introduction
+## Introduction
 
 This is a repository for analyzing mandarin medical dialgoues, including risk assessment and multiple-choice questing answering. The codes are designed for the [Medical Dialog Analysis Competition](https://aidea-web.tw/topic/3665319f-cd5d-4f92-8902-00ebbd8e871d). To reproduce our results, please refer to the [reproduce](#reproduce) section.
 
 
-### Installation
+## Installation
 
 * Python 3.6+
 
@@ -15,52 +15,52 @@ This is a repository for analyzing mandarin medical dialgoues, including risk as
 pip install -r requirement.txt
 ```
 
-### Download Data
+## Download Data
 
 ```bash
 vim aidea-web.tw_cookies.txt # put log-in cookies.txt here
 ./download.sh
 ```
 
-### Reproduce
+## Reproduce
 
 ```bash
-bash reproduce.sh config/risk.yaml config/qa.yaml config/
+bash reproduce.sh config/risk.yaml config/qa.yaml
 ```
 
-### Risk Evaluation
+## Risk Assessment
 
-##### Model
+#### Model
 
 See `report.pdf`
 
-##### Train Masked Language Model (MLM)
+#### Train Masked Language Model (MLM)
 
 ```bash
 vim config/mlm.yaml # Set train path and pretrained model.
-bash trian_mlm.sh
+bash train_mlm.sh
 ```
 
-##### Train Risk Model
+#### Train Risk Model
 
 ```bash
 vim config/risk.yaml # Put your pretrained MLM here. Set train path and test path.
 bash train_risk.sh
 ```
 
-##### Test
+#### Test
 
 ```bash
 python src/train_risk.py --config config/risk.yaml --mode test
 ```
 
-### Question Answering
+## Question Answering
 
-##### Model
+#### Model
 
 See `report.pdf`
 
-##### Test
+#### Test
 
 ```bash
 bash run_qa_rule_base.sh

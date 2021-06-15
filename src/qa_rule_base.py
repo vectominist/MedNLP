@@ -1,5 +1,7 @@
 '''
-    Training for the Multichoice QA
+    File      [ src/qa_rule_base.py ]
+    Author    [ Heng-Jui Chang & Chun-Wei Ho (NTUEE) ]
+    Synopsis  [ Rule-based multiple-choice QA ]
 '''
 
 import argparse
@@ -11,12 +13,14 @@ import numpy as np
 from data import QADatasetRuleBase
 from model import RuleBaseQA, RuleBaseQA2
 
+import logging
+logging.disable(logging.WARNING)
+
 label2answer = ['A', 'B', 'C']
 
 
 def eval(config: dict):
     print('Evaluating the rule-based model')
-    # model = RuleBaseQA()
     model = RuleBaseQA2()
 
     for i in range(len(config['data']['test_paths'])):
@@ -54,7 +58,7 @@ def eval(config: dict):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Training for QA Evaluation')
+    parser = argparse.ArgumentParser('Rule-based QA')
     parser.add_argument('--config', type=str, help='Path to config')
     args = parser.parse_args()
 

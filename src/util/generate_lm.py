@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/generate_lm.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Generate text data for masked LM training ]
+'''
+
 import argparse
 import csv
 import pickle

@@ -1,3 +1,9 @@
+'''
+    File      [ src/util/merge_data.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Merge train & labeled dev sets ]
+'''
+
 import csv
 import json
 

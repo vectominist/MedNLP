@@ -1,11 +1,12 @@
 '''
-Visualization for the Risk Evaluation Task
+    File      [ src/visualize_risk.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ Visualization (ROC curve) for the risk task ]
 '''
 
 import argparse
 import yaml
 import os
-import csv
 import numpy as np
 import torch
 from transformers import (
@@ -18,6 +19,9 @@ from model.risk_model_sbert import SBertRiskPredictor
 
 from sklearn.metrics import roc_auc_score, roc_curve
 import matplotlib.pyplot as plt
+
+import logging
+logging.disable(logging.WARNING)
 
 
 def eval(config: dict, ckpt: str, data_path: str):
@@ -64,7 +68,7 @@ def eval(config: dict, ckpt: str, data_path: str):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Training for Risk Evaluation')
+    parser = argparse.ArgumentParser('Visualization for Risk Assessment')
     parser.add_argument('--config', type=str, help='Path to config')
     parser.add_argument('--ckpt', type=str, default='', help='Path to ckpt')
     parser.add_argument('--data', type=str, default='', help='Path to data')

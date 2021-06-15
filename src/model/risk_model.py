@@ -1,9 +1,18 @@
+'''
+    File      [ src/model/risk_model.py ]
+    Author    [ IKMLab ]
+    Synopsis  [ Baseline model ]
+'''
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 from model.encoder import Encoder
+
+raise DeprecationWarning
+
 
 class Risk_Classifier(nn.Module):
     def __init__(self, d_emb: int, p_hid: float, n_layers: int):
@@ -49,7 +58,8 @@ class risk_model(nn.Module):
         super().__init__()
         word_embedding = np.load("data/embeddings.npy")
         word_embedding = torch.FloatTensor(word_embedding)
-        self.embedding = nn.Embedding.from_pretrained(word_embedding, freeze=True, padding_idx=0)
+        self.embedding = nn.Embedding.from_pretrained(
+            word_embedding, freeze=True, padding_idx=0)
         self.word_encoder = Encoder(d_emb, p_hid)
         self.encoder = Encoder(d_emb, p_hid)
         self.risk = Risk_Classifier(d_emb, p_hid, n_layers)

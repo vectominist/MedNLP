@@ -1,5 +1,7 @@
 '''
-Training for the Risk Evaluation Task
+    File      [ src/train_risk.py ]
+    Author    [ Heng-Jui Chang (NTUEE) ]
+    Synopsis  [ SBERT training & evaluation for the risk task ]
 '''
 
 import argparse
@@ -17,6 +19,9 @@ from transformers import (
 from data import ClassificationDataset
 from model.risk_model_sbert import SBertRiskPredictor
 from util.utils import count_parameters
+
+import logging
+logging.disable(logging.WARNING)
 
 
 def risk_eval_metrics(eval_pred):

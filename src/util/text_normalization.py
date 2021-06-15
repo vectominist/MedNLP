@@ -1,7 +1,15 @@
-import jieba
-import unicodedata
-import re
+'''
+    File      [ src/util/text_normalization.py ]
+    Author    [ Heng-Jui Chang & Chun-Wei Ho (NTUEE) ]
+    Synopsis  [ Text normalization ]
+'''
+
 import string
+import re
+import unicodedata
+import jieba
+import logging
+logging.disable(logging.WARNING)
 
 chinese_punctuations = r"""，。、！？‘’·⋯‧”“"""
 english_punctuations = string.punctuation.replace(':', '')

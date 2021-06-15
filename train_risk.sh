@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python src/train_risk.py --config config/risk.yaml
+python src/train_risk.py --mode train --config config/risk.yaml
