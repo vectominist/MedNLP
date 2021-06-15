@@ -58,6 +58,8 @@ def eval(config: dict, ckpt: str, data_path: str):
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.legend(loc="lower right")
+    os.makedirs('output', exist_ok=True)
+    plt.savefig('output/roc.png')
     plt.show()
 
 
@@ -69,8 +71,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config = yaml.load(open(args.config, 'r'), Loader=yaml.FullLoader)
-    if args.out != '':
-        config['data']['pred_paths'] = [args.out]
 
     set_seed(config['train_args']['seed'])
 

@@ -33,7 +33,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     labels = read_dev_csv(args.dev)
-    scores = read_dev_csv(args.res)
-    auc = roc_auc_score(lables, scores)
+    scores = read_result_csv(args.res)
+    auc = roc_auc_score(labels, scores)
 
     print('AUC = {:.5f}'.format(auc))
