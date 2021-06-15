@@ -1,14 +1,14 @@
 data:
   train_path: data/Train_risk_classification_ans.csv
-  test_paths: ['data/dev_risk.csv']
+  test_paths: ['data/Develop_risk_classification.csv']
   pred_paths: ['output/decision.csv']
   rand_remove: false
   rand_swap: true
   eda: false
 
 model:
-  pretrained: checkpoints/mlm_ckpt/tr-12160
-  post_encoder_type: none
+  pretrained: checkpoints/mlm_ckpt/tr-dv-15370
+  post_encoder_type: transformer
   d_model: 312
   sent_aggregate_type: mean_pool
   gate_layer: false
@@ -31,7 +31,7 @@ train_args:
   load_best_model_at_end: true
   seed: 8888
   report_to: none
-  dataloader_num_workers: 0
+  dataloader_num_workers: 2
   metric_for_best_model: eval_auroc
   label_smoothing_factor: 0.1
-  loggin_steps: 20
+  logging_steps: 20

@@ -47,7 +47,6 @@ if __name__ == '__main__':
     print('Stop words = {}'.format(len(tfidf.stop_words_)))
 
     X_test = tfidf.transform(X_test)
-    print(X_test.shape)
     Y_test_pred = clf.predict_proba(X_test)[:, 1]
 
     if args.out != '':
