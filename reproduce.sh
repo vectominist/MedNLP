@@ -13,7 +13,7 @@ mkdir -p $out_dir
 
 if ! command -v yq &> /dev/null
 then
-	echo "yq not found! Run one of the following command."
+	echo "yq not found! Run one of the following commands."
 	echo "sudo apt-get install yq"
 	echo "conda install yq"
 	exit 1
