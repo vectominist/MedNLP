@@ -9,6 +9,7 @@ import csv
 import pickle
 import json
 import numpy as np
+from tqdm import tqdm
 
 from text_normalization import normalize_sent_with_jieba
 from opencc import OpenCC
@@ -21,7 +22,7 @@ def read_risk_data(path: str):
         sents = []
         docs, doc_sents, lens = 0, [], []
         rows = csv.reader(fp)
-        for i, row in enumerate(rows):
+        for i, row in enumerate(tqdm(rows)):
             if i == 0:
                 continue
             sent = row[2]

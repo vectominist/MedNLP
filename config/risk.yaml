@@ -1,6 +1,6 @@
 data:
   train_path: data/Train_risk_classification_ans.csv
-  test_paths: ['data/Develop_risk_classification.csv']
+  test_paths: ['data/Test_risk_classification.csv']
   pred_paths: ['output/decision.csv']
   rand_remove: false
   rand_swap: true

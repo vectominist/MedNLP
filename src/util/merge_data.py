@@ -15,9 +15,9 @@ def read_csv(path):
         for i, r in enumerate(rows):
             if i == 0:
                 continue
-            data.append(
-                (int(r[1]), r[2], int(r[3]))
-            )
+            id1, id2 = int(r[1]), r[2]
+            label = 0 if len(r) == 3 else int(r[3])
+            data.append((id1, id2, label))
         return data
 
 
@@ -56,18 +56,23 @@ def merge_json(data_list, path):
 
 
 if __name__ == '__main__':
-    train_csv = '../../data/Train_risk_classification_ans.csv'
-    dev_csv = '../../data/Develop_risk_classification.csv'
-    out_csv = '../../data/train_risk_tr-dv.csv'
+    train_csv = 'data/Train_risk_classification_ans.csv'
+    dev_csv = 'data/Develop_risk_classification_ans.csv'
+    test_csv = 'data/Test_risk_classification.csv'
+    out_csv = 'data/train_risk_tr-dv-tt.csv'
 
     tr_set = read_csv(train_csv)
     dv_set = read_csv(dev_csv)
-    merge_csv([tr_set, dv_set], out_csv)
+    tt_set = read_csv(test_csv)
+    all_set = [tr_set, dv_set, tt_set]
+    tot_len = len(tr_set) + len(dv_set) + len(tt_set)
+    print('CSV: Total number of samples = {}'.format(tot_len))
+    merge_csv(all_set, out_csv)
 
-    train_json = '../../data/Train_qa_ans.json'
-    dev_json = '../../data/Develop_QA.json'
-    out_json = '../../data/train_qa_tr-dv.json'
+    # train_json = 'data/Train_qa_ans.json'
+    # dev_json = 'data/Develop_QA.json'
+    # out_json = 'data/train_qa_tr-dv.json'
 
-    tr_set = read_json(train_json)
-    dv_set = read_json(dev_json)
-    merge_json([tr_set, dv_set], out_json)
+    # tr_set = read_json(train_json)
+    # dv_set = read_json(dev_json)
+    # merge_json([tr_set, dv_set], out_json)

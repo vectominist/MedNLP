@@ -11,7 +11,7 @@ import jieba
 import logging
 logging.disable(logging.WARNING)
 
-chinese_punctuations = r"""，。、！？‘’·⋯‧”“"""
+chinese_punctuations = r"""，。、！？‘’·⋯‧・”“"""
 english_punctuations = string.punctuation.replace(':', '')
 remove_punctuations = english_punctuations + chinese_punctuations
 translator = str.maketrans(remove_punctuations, ' ' * len(remove_punctuations))
@@ -84,13 +84,15 @@ def normalize_sent_with_jieba(
             list of str
     '''
     text = unicodedata.normalize("NFKC", text).lower()
-    # print(text)
     text = deEmojify(text)
+    text = re.sub('0x[0-9a-f]+', '', text)
     text = text.replace('.', '')
     text = text.replace(' ', '')
     text = text.replace('、', '')
     text = text.replace('個管師', '醫師')
     text = text.replace('護理師', '醫師')
+    text = text.replace('醫師a:', '醫師:')
+    text = text.replace('醫師b:', '醫師:')
     text = text.replace('家屬', '民眾')
     text = text.replace('民眾a:', '民眾:')
     text = text.replace('民眾b:', '民眾:')
@@ -107,6 +109,7 @@ def normalize_sent_with_jieba(
     text = re.sub('(哈)+', '哈', text)
     text = re.sub('(ok)+', 'ok', text)
     text = re.sub('(no)+', 'no', text)
+    text = re.sub('(:)+', ':', text)
     text = re.sub(r'\([^)]*\)', '', text)
     if split:
         text = ["".join(i) for i in split_sent(text, split_type=split_type)]
@@ -136,7 +139,7 @@ def normalize_sent_with_jieba(
         out_text = [(t if len(t) <= max_sent_len else t[-max_sent_len:])
                     for t in text]
     else:
-        out_text = [(t if len(t) <= max_sent_len else t[:2] + t[-max_sent_len:])
+        out_text = [(t if len(t) <= max_sent_len else t[:3] + t[-max_sent_len:])
                     for t in text]
 
     return out_text

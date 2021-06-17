@@ -5,10 +5,12 @@ exp
 log
 runs
 output
+find_patterns.py
+find_repeat.py
 results.zip
-
 qa.csv
 decision.csv
+log.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

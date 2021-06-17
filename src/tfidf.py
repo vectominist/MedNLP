@@ -38,6 +38,7 @@ def load_data(path, name):
     X = list(map(lambda x: ' '.join([' '.join(list(jieba.cut(i)))
                                      for i in x[1] if i != '']), data))
     X = [remove_numbers(x) for x in X]
+    X = [x.replace('醫師 : ', '').replace('民眾 : ', '') for x in X]
     Y = None if name == 'test' else list(map(lambda x: x[2], data))
     if Y is not None:
         print('class 0 : class 1 = {:.2f} : {:.2f}'
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--val', type=str, help='Path to validation data')
     parser.add_argument('--test', type=str, default='',
                         help='Path to testing data')
-    parser.add_argument('--ckpt', type=str, default='model/',
+    parser.add_argument('--ckpt', type=str, default='',
                         help='Path to save ckpt')
     parser.add_argument('--cls', type=str, choices=['svc', 'gdboost'],
                         default='gdboost', help='Classifier type')
@@ -59,7 +60,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     np.random.seed(args.seed)
-    os.makedirs(args.ckpt, exist_ok=True)
 
     X_train, Y_train, _ = load_data(args.train, 'train')
     X_val, Y_val, _ = load_data(args.val, 'train')
@@ -108,7 +108,7 @@ if __name__ == '__main__':
             random_state=args.seed
         )
 
-    clf = CalibratedClassifierCV(model, cv=10)
+    clf = CalibratedClassifierCV(model, cv=10, n_jobs=2)
     clf.fit(X_train, Y_train)
     Y_train_pred = clf.predict_proba(X_train)[:, 1]
     Y_val_pred = clf.predict_proba(X_val)[:, 1]
@@ -118,11 +118,13 @@ if __name__ == '__main__':
     print('  Val   AUC : {:.5f}'.format(roc_auc_score(Y_val, Y_val_pred)))
     print('=======================')
 
-    clf_path = os.path.join(args.ckpt, 'clf.bin')
-    vec_path = os.path.join(args.ckpt, 'vec.bin')
-    with open(clf_path, 'wb') as fp:
-        pickle.dump(clf, fp)
-        print('Classification model saved to {}'.format(clf_path))
-    with open(vec_path, 'wb') as fp:
-        pickle.dump(tfidf, fp)
-        print('TfidfVectorizer saved to {}'.format(vec_path))
+    if args.ckpt != '':
+        os.makedirs(args.ckpt, exist_ok=True)
+        clf_path = os.path.join(args.ckpt, 'clf.bin')
+        vec_path = os.path.join(args.ckpt, 'vec.bin')
+        with open(clf_path, 'wb') as fp:
+            pickle.dump(clf, fp)
+            print('Classification model saved to {}'.format(clf_path))
+        with open(vec_path, 'wb') as fp:
+            pickle.dump(tfidf, fp)
+            print('TfidfVectorizer saved to {}'.format(vec_path))
