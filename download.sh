@@ -14,6 +14,11 @@ wget ${wget_opts} -O data/Train_qa_ans.json https://aidea-web.tw/file/3665319f-c
 wget ${wget_opts} -O data/Train_risk_classification_ans.csv https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1618969704984840_train_test_dataset_1___Train_risk_classification_ans.csv
 wget ${wget_opts} -O data/Develop_QA.json https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1621298399471774_train_test_dataset_1___Develop_QA.json
 wget ${wget_opts} -O data/Develop_risk_classification.csv https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1621298399471774_train_test_dataset_1___Develop_risk_classification.csv
+# wget ${wget_opts} -O data/Contestant_check_format.zip https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1623905483304198_train_test_dataset_1___Contestant_check_format.zip
+wget ${wget_opts} -O data/Test_QA.json https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1623905483304198_train_test_dataset_1___Test_QA.json
+wget ${wget_opts} -O data/Test_risk_classification.csv https://aidea-web.tw/file/3665319f-cd5d-4f92-8902-00ebbd8e871d-1623905483304198_train_test_dataset_1___Test_risk_classification.csv
+
+# unzip -n data/Contestant_check_format.zip -d .
 
 cp material/Develop_QA_human.json data
 

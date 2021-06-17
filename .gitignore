@@ -5,6 +5,7 @@ exp
 log
 runs
 output
+results.zip
 
 qa.csv
 decision.csv

@@ -1,0 +1,37 @@
+data:
+  train_path: data/Train_risk_classification_ans.csv
+  test_paths: ['data/Test_risk_classification.csv']
+  pred_paths: ['output/decision.csv']
+  rand_remove: false
+  rand_swap: true
+  eda: false
+
+model:
+  pretrained: checkpoints/mlm_ckpt/tr-dv-15370
+  post_encoder_type: transformer
+  d_model: 312
+  sent_aggregate_type: mean_pool
+  gate_layer: false
+
+train_args:
+  output_dir: runs/risk_pred
+
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+
+  learning_rate: 0.00005
+  weight_decay: 0.01
+  num_train_epochs: 20
+  lr_scheduler_type: linear
+  warmup_ratio: 0.1
+
+  save_strategy: epoch
+  evaluation_strategy: epoch
+  load_best_model_at_end: true
+  seed: 8888
+  report_to: none
+  dataloader_num_workers: 2
+  metric_for_best_model: eval_auroc
+  label_smoothing_factor: 0.1
+  logging_steps: 20
