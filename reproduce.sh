@@ -16,6 +16,7 @@ then
 	echo "yq not found! Run one of the following commands."
 	echo "sudo apt-get install yq"
 	echo "conda install yq"
+    echo "or you may consider manually modify the variable risk_test"
 	exit 1
 fi
 
