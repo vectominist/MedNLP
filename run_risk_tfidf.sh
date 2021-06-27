@@ -9,11 +9,11 @@ python3 src/tfidf.py \
     --cls gdboost \
     --seed 7122
 
-python3 src/tfidf_test.py \
-    --test data/Develop_risk_classification_ans.csv \
-    --ckpt checkpoints/gdboost_ckpt/tr-7122 \
-    --out data/decision.gdboost.tr.csv \
-    --seed 7122
+# python3 src/tfidf_test.py \
+#     --test data/Develop_risk_classification_ans.csv \
+#     --ckpt checkpoints/gdboost_ckpt/tr-7122 \
+#     --out data/decision.gdboost.tr.csv \
+#     --seed 7122
 
 # train + dev sets
 # python3 src/tfidf.py \
